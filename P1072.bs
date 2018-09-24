@@ -310,7 +310,7 @@ novel APIs:
 void prepare(size_type n);
 </xmp>
 
-*   *Effects*:  After `reserve()`, `capacity() >= n` and ensures that `[data(),
+*   *Effects*:  After `prepare()`, `capacity() >= n` and ensures that `[data(),
     data()+capacity())` is a valid range.  Elements `[data()+size(),
     data()+capacity())` are *default initialized*.  Reallocation occurs if and
     only if the current capacity is less than `n`.
