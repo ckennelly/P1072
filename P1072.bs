@@ -1,0 +1,129 @@
+<pre class='metadata'>
+Title: Default Initialization for basic_string
+Status: P
+Shortname: P1072
+Group: WG21
+Revision: 0
+Editor: Chris Kennelly, Google, ckennelly@google.com
+Editor: Mark Zeren, VMWare, mzeren@vmware.com
+Date: 2018-05-04
+Audience: LEWG
+Audience: LWG
+Audience: SG16
+Abstract: Extend basic_string to allow access to default-initialized elements.  We propose similar changes to vector in P1010R0.
+URL: http://wg21.link/P1072R0
+Markup Shorthands: markdown yes
+Default Highlight: C++
+</pre>
+
+# Motivation # {#mot}
+
+Motivation Performance sensitive code is impacted by the cost of
+manipulating strings:  When streaming data into a `basic_string`, a
+programmer is forced to choose between extra initialization (`resize` then
+copy directly in) or extra copies (copy into a temporary buffer, then
+`append`).
+
+Consider writing a pattern several times into a string:
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::string ret;
+
+   ret.reserve(pattern.size() * count);
+   for (size_t i = 0; i < count; i++) {
+     ret.append(pattern);  // BAD: Extra bookkeeping
+   }
+
+   return ret;
+}
+</xmp>
+
+Alternatively, we could adjust the output string’s size to its final size,
+avoiding the bookkeeping in `append` at the cost of extra initialization:
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::string ret;
+
+   const auto step = pattern.size();
+   ret.size(step * count);  // BAD:  Extra initialization
+   for (size_t i = 0; i < count; i++) {
+     // GOOD: No bookkeeping
+     memcpy(ret.data() + i * step, pattern.data(), step);
+   }
+
+   return ret;
+}
+</xmp>
+
+We propose adding an interface to `basic_string` to avoid this tradeoff:
+
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::string ret;
+
+   const auto step = pattern.size();
+   // GOOD:  No initialization
+   ret.resize_uninitialized(step * count);
+   for (size_t i = 0; i < count; i++) {
+     // GOOD: No bookkeeping
+     memcpy(ret.data() + i * step, pattern.data(), step);
+   }
+
+   return ret;
+}
+</xmp>
+
+Google has implemented `resize_uninitialized` (Option A) in its standard
+library.  This is used in performance critical sections of code such as:
+
+*   <a href="https://github.com/abseil/abseil-cpp">Abseil</a>: <a href="https://github.com/abseil/abseil-cpp/blob/master/absl/strings/str_cat.cc#L96">`StrCat`</a> and <a href="https://github.com/abseil/abseil-cpp/blob/master/absl/strings/str_cat.cc#L192">`StrAppend`</a> can copy bytes directly into the final string, eliding size checks that `basic_string::append` would perform when adding each piece.  These uses are similar to the examples illustrated in this section.
+*   <a href="https://github.com/google/protobuf">Protocol Buffers</a>:  Extraneous copies or initialization are avoided where the size is known before the data is available.  On <a href="https://github.com/google/protobuf/blob/master/src/google/protobuf/message_lite.cc#L293">serialization</a>, the size has been calculated (needed for length prefixed data) before the contents are ready.  On <a href="https://github.com/google/protobuf/blob/master/src/google/protobuf/io/coded_stream_inl.h#L55">deserialization</a>, the size will have been parsed and bytes need to be copied into a string for user code to access.
+*   <a href="https://github.com/google/snappy">Snappy</a>:  During <a href="https://github.com/google/snappy/blob/master/snappy.cc#L1264">decompression</a>, the final size of the output buffer is known before the contents are ready.  During <a href="https://github.com/google/snappy/blob/master/snappy.cc#L1324">compression</a>, an upperbound on the final compressed size is known, allowing data to be efficiently added to the output buffer (eliding append’s checks) and the string to be shrunk to its final, correct size.
+
+# Proposal # {#prop#}
+
+## Option A ## {#optionA}
+
+Add to basic.string.capacity [24.3.2.4]:
+
+<xmp>
+void resize_uninitialized(size_type n);
+</xmp>
+
+*   *Throws*: `length_error` if `n > max_size()`
+*   *Effects*:  Alters the length of the string designated by `*this` as follows:
+
+    *   If `n <= size()`, calls `resize(n)`
+    *   If `n > size()`, the function replaces the string designated by `*this` with a string of length `n` whose first `size()` elements are a copy of the original string designated by `*this`, and whose remaining elements are default initialized.
+
+The "null terminator" invariant of `basic_string` [24.3.2] is unchanged.
+
+## Option B ## {#optionB}
+
+While there is implementation experience for Option A, Option B may be more
+friendly to processor memory prefetchers on modern architectures, particularly
+when memory is being initialized from `uninitialized_data()` in order for long
+strings.
+
+Add to string.accessors [24.3.2.7.1]
+
+<xmp>
+charT* uninitialized_data() noexcept;
+</xmp>
+
+*   Returns a pointer `p` such that `p == data() + size()` and `[p, p + capacity() - size())` is a valid range.  All values except `*p` have indeterminate value.  Modifying `*p` requires a subsequent call to `insert_from_capacity()` to restore the "null terminator."
+*   *Complexity*: Constant time
+
+Add:
+
+<xmp>
+basic_string& insert_from_capacity(size_type n);
+</xmp>
+
+*   *Throws*: `length_error` if `n > capacity() - size()`
+*   *Effects*:  Appends `n` elements that must have been previously initialized by the application via `uninitialized_data()`.  `data() + size()` points to an object with value `charT()`.
+
+# Related Work # {#related}
+
+*   <a href="https://wg21.link/P0593">P0593</a>: Bless implicit creation of trivial types
+*   <a href="https://wg21.link/P1010">P1010</a>: Proposal to expose default-initialized elements for `vector`
