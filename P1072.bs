@@ -98,7 +98,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
    tmp.reserve(step * count + 1);
    for (size_t i = 0; i < count; i++) {
      // GOOD: No bookkeeping
-     memcpy(tmp.data() + i * step, pattern.data(), step);
+     memcpy(tmp.uninitialized_data() + i * step, pattern.data(), step);
    }
 
    tmp.insert_from_capacity(step * count);
