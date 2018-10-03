@@ -60,7 +60,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 }
 </xmp>
 
-We propose two avenue to avoid this tradeoff.  The first possibility is
+We propose two avenues to avoid this tradeoff.  The first possibility is
 `storage_buffer`, a full-fledged container providing default-initialized
 elements:
 
@@ -311,9 +311,9 @@ void prepare(size_type n);
 </xmp>
 
 *   *Effects*:  After `prepare()`, `capacity() >= n` and ensures that `[data(),
-    data()+capacity())` is a valid range.  Elements `[data()+size(),
-    data()+capacity())` are *default initialized*.  Reallocation occurs if and
-    only if the current capacity is less than `n`.
+    data()+capacity())` is a valid range.  Note that `[data()+size(),
+    data()+capacity())` may contain indeterminate values.  Reallocation occurs
+    if and only if the current capacity is less than `n`.
 *   *Complexity*: At most linear time in the size of the sequence.
 *   *Throws*: `length_error` if `n > max_size()`.  `Allocator::allocate` may throw.
 *   *Remarks*: Reallocation invalidates all references, pointers, and iterators
@@ -682,12 +682,13 @@ implicit lifetime types.  During this discussion, no
 motivating examples were suggested for allocators with non-trivial
 `implicit_construct` / `destroy` methods.  This may motivate *not* adding
 `implicit_construct` for implicit lifetime types and having no corresponding
-call to `destroy` (see [[#questions]]), as `implicit_construct` would merely
+call to `destroy` (see [[#questions]]), as `allocate` could merely
 invoke `std::bless` (see [[P0593R2]]).
 
 # Design Considerations # {#considerations}
 
-The [[#container]] API isolates UB (from accessing uninitialized data) into a specific, clearly expressed container type:
+The [[#container]] API isolates UB (from accessing uninitialized data) into a
+specific, clearly expressed container type:
 
 *   Code reviews can identify `storage_buffer` and carefully vet it.  While it
     is conceivable that a `storage_buffer` could cross an API boundary, such
@@ -704,6 +705,12 @@ The [[#container]] API isolates UB (from accessing uninitialized data) into a sp
 
 The [[#transfer]]-oriented API avoids introducing yet another, full-fledged
 container type.  `vector` accomplishes the desired goals with fewer additions.
+
+`basic_string` is often implemented with a short string optimization (SSO).
+When transferring to `vector` (which lacks a short buffer optimization), an
+allocation may be required.  We can expose knowledge of that in our API
+(whether the buffer is allocated or not), but the desire to avoid unneeded
+initialization is much more suited to larger buffers.
 
 # Alternatives Considered # {#alternatives}
 
@@ -827,9 +834,10 @@ initialization".
 
 # Questions for LEWG # {#questions}
 
-*   Do we need `implicit_construct`, the complement to `destroy`?
 *   Does LEWG prefer `storage_buffer` to be a distinct, full-fledged container
-    type or should we pursue it purely as a node-like vehicle for transferring buffers?
+    ([[#container]]) type or should we pursue it purely as a node-like vehicle
+    for transferring buffers ([[#transfer]])?
+*   Do we need `implicit_construct`, the complement to `destroy`?
 
 # History # {#history}
 
