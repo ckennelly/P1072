@@ -838,6 +838,8 @@ initialization".
     ([[#container]]) type or should we pursue it purely as a node-like vehicle
     for transferring buffers ([[#transfer]])?
 *   Do we need `implicit_construct`, the complement to `destroy`?
+*   Do we want to be able to provide an externally-allocated buffer and
+    transfer ownership into a `basic_string`/`vector`/`storage_buffer`?
 
 # History # {#history}
 
