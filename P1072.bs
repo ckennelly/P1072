@@ -5,7 +5,7 @@ Shortname: P1072
 Group: WG21
 Revision: 1
 Editor: Chris Kennelly, Google, ckennelly@google.com
-Editor: Mark Zeren, VMWare, mzeren@vmware.com
+Editor: Mark Zeren, VMware, mzeren@vmware.com
 Date: 2018-09-23
 Audience: LEWG
 Audience: LWG
