@@ -36,7 +36,10 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 
    ret.reserve(pattern.size() * count);
    for (size_t i = 0; i < count; i++) {
-     ret.append(pattern);  // BAD: Extra bookkeeping
+     // SUB-OPTIMAL:
+     // * Writes 'count' nulls
+     // * Updates size and checks for potential resize 'count' times
+     ret.append(pattern);
    }
 
    return ret;
@@ -50,7 +53,8 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
    std::string ret;
 
    const auto step = pattern.size();
-   ret.resize(step * count);  // BAD:  Extra initialization
+   // SUB-OPTIMAL: We memset step*count bytes only to overwrite them.
+   ret.resize(step * count);
    for (size_t i = 0; i < count; i++) {
      // GOOD: No bookkeeping
      memcpy(ret.data() + i * step, pattern.data(), step);
@@ -117,7 +121,7 @@ std::string CompressWrapper(std::string_view input) {
     // Compute upper limit of compressed input.
     size_t size = compressBound(input.size());
 
-    // BAD:  Extra initialization
+    // SUB-OPTIMAL:  Extra initialization
     compressed.resize(size);
     int ret = compress(compressed.begin(), &size, input.data(), input.size());
     if (ret != OK) {
@@ -182,7 +186,10 @@ void Transform() {
     std::string<char> str;
     // Populate and initialize str.
 
-    // BAD: Extra copying
+    // SUB-OPTIMAL:
+    // * We have an extra allocation/deallocation.
+    // * We have to copy the contents of the new buffer, when we could have
+    //   reused str's buffer (if the API permitted that expression).
     std::vector<char> vec(str.begin(), str.end());
 
     // str is not used after this point...
