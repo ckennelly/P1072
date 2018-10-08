@@ -1,5 +1,5 @@
 <pre class='metadata'>
-Title: Default Initialization for basic_string and vector
+Title: Optimized Initialization for basic_string and vector
 Status: P
 Shortname: P1072
 Group: WG21
@@ -10,7 +10,7 @@ Date: 2018-10-07
 Audience: LEWG
 Audience: LWG
 Audience: SG16
-Abstract: Allow access to default-initialized elements when working with basic_string and vector.
+Abstract: Allow access to uninitialized or default initialized elements when working with basic_string and vector.
 URL: http://wg21.link/P1072R1
 Markup Shorthands: markdown yes
 Default Highlight: C++
@@ -52,7 +52,7 @@ We present three options for LEWG's consideration:
     manipulating uninitialized data
 *   A transfer-orientated node-type, `storage_buffer` ([[#transfer]]), for
     moving buffers between `basic_string` and `vector`, relying on either
-    *   Additions to `vector` by [[P1010R0]] to allow for access to
+    *   Additions to `vector` by [[P1010R1]] to allow for access to
         uninitialized data, then marking it as committed
         (`insert_from_capacity`).
     *   The user to allocate a buffer, populate it, then pass it to the
@@ -119,10 +119,10 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 Distinctly, `storage_buffer` is move-only, avoiding (depending on `T`)
 potential UB from copying uninitialized elements.
 
-The second possibility is `storage_buffer` as a node-like mechanism (similar
-to the now existent API for associative containers added in [[P0083R3]]) for
-transferring buffers, coupled with default-initialized access APIs for
-`std::vector` (originally proposed by [[P1010R0]], now merged into this paper).
+The second possibility is `storage_buffer` as a node-like mechanism (similar to
+the now existent API for associative containers added in [[P0083R3]]) for
+transferring buffers, coupled with new APIs for `std::vector` from [[P1010R1]]
+but also merged in this paper).
 
 <xmp>
 std::string GeneratePattern(const std::string& pattern, size_t count) {
@@ -259,7 +259,7 @@ static StringData caseFoldAndStripDiacritics(StackBufBuilder* buffer,
 </xmp>
 (Comments re-wrapped.)
 
-## VMWare ## {#vmware}
+## VMware ## {#vmware}
 
 VMware has an internal string builder implementation that avoids `std::string`
 due, in part, to `reserve`'s zero-writing behavior. This is similar in spirit to
@@ -539,8 +539,8 @@ As-presented, this type can only be constructed by the library, rather than the
 user.  To address the redundant initialization problem, we have two routes
 forward:
 
-*   Adopt [[P1010R0]]'s `uninitialized_data` and `insert_from_capacity` API
-    additions to `vector`
+*   Adopt [[P1010R1]]'s `uninitialized_data` and `insert_from_capacity` API
+    additions to `vector`.
 *   Be able to manipulate the constituent components of the transfer node and
     reassemble it.
 
@@ -915,7 +915,7 @@ initialization is much more suited to larger buffers.
 # Alternatives Considered # {#alternatives}
 
 [[P1010R0]] and [[P1072R0]] contemplated providing direct access to
-default-initialized elements of `vector` and `basic_string` respectively.
+uninitialized elements of `vector` and `basic_string` respectively.
 
 *   Boost provides a related optimization for vector-like containers,
     introduced in <a
@@ -963,14 +963,21 @@ These optimizations are also supported in Boost Container's `small_vector`,
     ([[#container]]) type or should we pursue it purely as a node-like vehicle
     for transferring buffers ([[#transfer]])?
     *   If LEWG prefers the transfer type, should it be named?
-    *   If LEWG prefers the transfer type, how do we solve the redundant initialization problem?  (We present additions to `vector`, based on the work of [[P1010R0]] here, or working directly with the raw buffers.)
+
+    * If LEWG prefers the transfer type, how do we solve the redundant
+        initialization problem? (We present additions to `vector`, based on the
+        [[P1010R1]], or working directly with the raw buffers.)
+
 *   What types do we intend to cover (by avoiding initialization costs)?
     *   `char`, `unsigned char`, etc.
-    *   The implicitly constructed types, described by [[P0593R2]]
+    *   The implicit lifetime types, described by [[P0593R2]]
     *   Trivially relocatable types, described by [[P1144]]
 *   Do we need `implicit_construct`, the complement to `destroy`?
+*   Do we need to add `default_construct` to the allocator model?
 *   Do we want to be able to provide an externally-allocated buffer and
     transfer ownership into a `basic_string`/`vector`/`storage_buffer`?
+*   Do we want to support buffer transfer to user defined types?
+*   Do we need to support bookkeeping at the head of allocations?
 
 # History # {#history}
 
@@ -985,7 +992,7 @@ Applied feedback from LEWG [[post-Rapperswil]] Email Review:
 
 *   Added discussion of design and implementation considerations.
 
-Additionally, the contents of [[P1010R0]] and [[P1072R0]] have been merged.
+*   Most of [[P1010R0]] Was merged into this paper.
 
 <pre class=biblio>
 {
@@ -1019,10 +1026,10 @@ Additionally, the contents of [[P1010R0]] and [[P1072R0]] have been merged.
         "date": "2018-02-11",
         "title": "Implicit creation of objects for low-level object manipulation"
     },
-    "P1010R0": {
-        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1010r0.html",
-        "date": "2018-05-06",
-        "title": "Proposal to expose default-initialized elements for vector"
+    "P1010R1": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1010r1.html",
+        "date": "2018-10-08",
+        "title": "Container support for implicit lifetime types. "
     },
     "P1020R0": {
         "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1020r0.html",
