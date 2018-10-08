@@ -958,11 +958,10 @@ boost/container/vector.hpp</a>:
 These optimizations are also supported in Boost Container's `small_vector`,
 `static_vector`, `deque`, `stable_vector`, and `string`.
 
-*   Adding two new methods `uninitialized_data` (to bless access beyond
-    `size()`)
-    and `insert_from_capacity` (to update size without clobbering data beyond
-    the existing size).  (This was proposed by [[P1010R0]] and "Option B" in
-    [[P1072R0]].)
+*   Adding two new methods to `basic_string`: `uninitialized_data` (to bless
+    access beyond `size()`) and `insert_from_capacity` (to update size without
+    clobbering data beyond the existing size). (This was proposed as "Option B"
+    in [[P1072R0]].)
 
 *   Add `basic_string::resize_uninitialized`.
     This resizes the string, but leaves the elements indexed from `[old_size(),
