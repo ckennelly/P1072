@@ -926,7 +926,7 @@ initialization is much more suited to larger buffers.
 
 # Alternatives Considered # {#alternatives}
 
-[[P1010R0]] and [[P1072R0]] contemplated providing direct access to
+[[P1010R1]] and [[P1072R0]] contemplated providing direct access to
 uninitialized elements of `vector` and `basic_string` respectively.
 
 *   Boost provides a related optimization for vector-like containers,
@@ -973,12 +973,9 @@ These optimizations are also supported in Boost Container's `small_vector`,
 * Does LEWG prefer a full-fledged container like `storage_buffer` a limited node
     transfer type like `storage_node`?
 
-    * If LEWG prefers the transfer type, how do we solve the redundant
-      initialization problem? Additions to `vector`, based on the
-      [[P1010R1]], or working directly with raw buffers?
+    * If LEWG prefers the transfer type, how do we solve the redundant initialization problem? Additions to `vector`, based on the [[P1010R1]], or working directly with raw buffers?
 
-    * If LEWG prefers the transfer type, should it be a named type, or should be
-      only a concept?
+    * If LEWG prefers the transfer type, should it be a named type, or should be only a concept?
 
 *   What types do we intend to cover (by avoiding initialization costs)?
     *   `char`, `unsigned char`, etc.
@@ -1004,7 +1001,7 @@ Applied feedback from LEWG [[post-Rapperswil]] Email Review:
 
 *   Added discussion of design and implementation considerations.
 
-*   Most of [[P1010R0]] Was merged into this paper.
+*   Most of [[P1010R1]] Was merged into this paper.
 
 <pre class=biblio>
 {
