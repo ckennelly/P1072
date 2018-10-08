@@ -50,7 +50,7 @@ We present three options for LEWG's consideration:
 
 *   A full-fledged container type, `storage_buffer` ([[#container]]), for
     manipulating uninitialized data
-*   A transfer-orientated node-type, `storage_buffer` ([[#transfer]]), for
+*   A transfer-orientated node-type, `storage_node` ([[#transfer]]), for
     moving buffers between `basic_string` and `vector`, relying on either
     *   Additions to `vector` by [[P1010R1]] to allow for access to
         uninitialized data, then marking it as committed
@@ -119,7 +119,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 Distinctly, `storage_buffer` is move-only, avoiding (depending on `T`)
 potential UB from copying uninitialized elements.
 
-The second possibility is `storage_buffer` as a node-like mechanism (similar to
+The second possibility is `storage_node` as a node-like mechanism (similar to
 the now existent API for associative containers added in [[P0083R3]]) for
 transferring buffers, coupled with new APIs for `std::vector` from [[P1010R1]]
 but also merged in this paper).
@@ -137,7 +137,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
    }
 
    tmp.insert_from_capacity(step * count);
-   return std::string(tmp.extract());
+   return std::string(tmp.extract()); // Transfer via storage_node.
 }
 </xmp>
 
@@ -165,7 +165,7 @@ std::string CompressWrapper(std::string_view input) {
 }
 </xmp>
 
-With the proposed, new container form of `storage_buffer`:
+With the proposed `storage_buffer`:
 
 <xmp>
 std::string CompressWrapper(std::string_view input) {
@@ -186,7 +186,7 @@ std::string CompressWrapper(std::string_view input) {
 }
 </xmp>
 
-With the node-orientated version:
+With `storage_node`:
 <xmp>
 std::string CompressWrapper(std::string_view input) {
     std::vector<char> compressed;
@@ -202,7 +202,7 @@ std::string CompressWrapper(std::string_view input) {
 
     // Shrink compress to its true size.
     compress.insert_from_capacity(size);
-    return std::string(std::move(compressed));
+    return std::string(std::move(compressed)); // Transfer via storage_node.
 }
 </xmp>
 
@@ -501,36 +501,36 @@ Transferring from `storage_buffer` to `basic_string` and `vector`:
 *   Use explicit `attach`/`detach` APIs or something similar, as presented in
     [[#transferbikeshed]]
 
-## `storage_buffer` as a transfer vehicle ## {#transfer}
+## `storage_node` as a transfer vehicle ## {#transfer}
 
-Alternatively, we contemplate `storage_buffer` as having a similar role for
+Alternatively, we contemplate a `storage_node` as having a similar role for
 `basic_string`/`vector` as `node_handle` provides for associative containers.
 
-`storage_buffer` owns its underlying allocation and is responsible for
+`storage_node` owns its underlying allocation and is responsible for
 destroying any objects and deallocating the backing memory via its allocator.
 
-### `storage_buffer` API ### {#transferapi}
+### `storage_node` API ### {#transferapi}
 
 <xmp>
 template<unspecified>
-class storage_buffer {
+class storage_node {
   public:
     // These type declarations are described in [containers.requirements.general]
     using value_type = see below;
     using allocator_type = see below;
 
-    ~storage_buffer();
-    storage_buffer(storage_buffer&&) noexcept;
-    storage_buffer& operator=(storage_buffer&&);
+    ~storage_node();
+    storage_node(storage_node&&) noexcept;
+    storage_node& operator=(storage_node&&);
 
     allocator_type get_allocator() const;
     explicit operator bool() const noexcept;
     bool empty() const noexcept;
-    void swap(storage_buffer&) noexcept(
+    void swap(storage_node&) noexcept(
         allocator_traits<allocator_type>::propagate_on_container_swap::value ||
         allocator_traits<allocator_type>::is_always_equal::value);
 
-    friend void swap(storage_buffer& x, storage_buffer& y) noexcept(
+    friend void swap(storage_node& x, storage_node& y) noexcept(
         noexcept(x.swap(y))) { x.swap(y); }
 };
 </xmp>
@@ -564,7 +564,7 @@ forward:
             memcpy(start + i * step, pattern.data(), step);
         }
 
-        return std::string(std::storage_buffer(
+        return std::string(std::storage_node(
             tmp, size + count * step, cap, alloc));
     }
     </xmp>
@@ -608,7 +608,7 @@ forward:
             memcpy(tmp + i * step, pattern.data(), step);
         }
 
-        return std::string(std::storage_buffer(
+        return std::string(std::storage_node(
             tmp, size * count, size * count + 1, 0 /* offset */, alloc));
     }
     </xmp>
@@ -625,11 +625,11 @@ In [**string.modifiers**] add new:
 <blockquote>
 <ins>
 <pre highlight="">
-storage_buffer extract();
+storage_node extract();
 </pre>
 <ol start="3">
 
-<li> *Effects:*  Removes the buffer from the string and returns a `storage_buffer` owning the buffer.  The string is left in a valid state with unspecified value.</li>
+<li> *Effects:*  Removes the buffer from the string and returns a `storage_node` owning the buffer.  The string is left in a valid state with unspecified value.</li>
 
 <li> *Complexity:* - Linear in the size of the sequence. </li>
 
@@ -638,7 +638,7 @@ storage_buffer extract();
 
 <ins>
 <pre highlight="">
-void insert(storage_buffer&& buf);
+void insert(storage_node&& buf);
 </pre>
 <ol start="3">
 
@@ -687,11 +687,11 @@ namespace std {
     template&lt;class InputIterator&gt;
       iterator insert(const_iterator position, InputIterator first, InputIterator last);
     iterator insert(const_iterator position, initializer_list&lt;T&gt; il);
-    <ins>void insert(storage_buffer&& buf);</ins>
+    <ins>void insert(storage_node&& buf);</ins>
     <ins>iterator insert_from_capacity(size_type n);</ins>
     iterator erase(const_iterator position);
     iterator erase(const_iterator first, const_iterator last);
-    <ins>storage_buffer extract();</ins>
+    <ins>storage_node extract();</ins>
 
     ...
 </pre>
@@ -775,11 +775,11 @@ iterator insert_from_capacity(size_type n);
 
 <ins>
 <pre highlight="">
-storage_buffer extract();
+storage_node extract();
 </pre>
 <ol start="3">
 
-<li> *Effects:*  Removes the buffer from the container and returns a `storage_buffer` owning the buffer.</li>
+<li> *Effects:*  Removes the buffer from the container and returns a `storage_node` owning the buffer.</li>
 
 <li> *Complexity:* - Constant time. </li>
 
@@ -788,7 +788,7 @@ storage_buffer extract();
 
 <ins>
 <pre highlight="">
-void insert(storage_buffer&& buf);
+void insert(storage_node&& buf);
 </pre>
 <ol start="3">
 
@@ -826,7 +826,7 @@ What should we call the methods for obtaining and using a node?
 *   `extract` / `insert` for consistency with the APIs of associative containers (added by [[P0083R3]])
 *   `detach` / `attach`
 *   `release` / `reset` for consistency with `unique_ptr`
-*   `get_storage_buffer` / `put_storage_buffer`
+*   `get_storage_node` / `put_storage_node`
 
 ## Allocator Support ## {#allocators}
 
@@ -970,14 +970,15 @@ These optimizations are also supported in Boost Container's `small_vector`,
 
 # Questions for LEWG # {#questions}
 
-*   Does LEWG prefer `storage_buffer` to be a distinct, full-fledged container
-    ([[#container]]) type or should we pursue it purely as a node-like vehicle
-    for transferring buffers ([[#transfer]])?
-    *   If LEWG prefers the transfer type, should it be named?
+* Does LEWG prefer a full-fledged container like `storage_buffer` a limited node
+    transfer type like `storage_node`?
 
     * If LEWG prefers the transfer type, how do we solve the redundant
-        initialization problem? (We present additions to `vector`, based on the
-        [[P1010R1]], or working directly with the raw buffers.)
+      initialization problem? Additions to `vector`, based on the
+      [[P1010R1]], or working directly with raw buffers?
+
+    * If LEWG prefers the transfer type, should it be a named type, or should be
+      only a concept?
 
 *   What types do we intend to cover (by avoiding initialization costs)?
     *   `char`, `unsigned char`, etc.
