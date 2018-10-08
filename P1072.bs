@@ -1,5 +1,5 @@
 <pre class='metadata'>
-Title: Default Initialization for basic_string and vector
+Title: Optimized Initialization for basic_string and vector
 Status: P
 Shortname: P1072
 Group: WG21
@@ -10,7 +10,7 @@ Date: 2018-10-07
 Audience: LEWG
 Audience: LWG
 Audience: SG16
-Abstract: Allow access to default-initialized elements when working with basic_string and vector.
+Abstract: Allow access to uninitialized or default initialized elements when working with basic_string and vector.
 URL: http://wg21.link/P1072R1
 Markup Shorthands: markdown yes
 Default Highlight: C++
@@ -50,9 +50,9 @@ We present three options for LEWG's consideration:
 
 *   A full-fledged container type, `storage_buffer` ([[#container]]), for
     manipulating uninitialized data
-*   A transfer-orientated node-type, `storage_buffer` ([[#transfer]]), for
+*   A transfer-orientated node-type, `storage_node` ([[#transfer]]), for
     moving buffers between `basic_string` and `vector`, relying on either
-    *   Additions to `vector` by [[P1010R0]] to allow for access to
+    *   Additions to `vector` by [[P1010R1]] to allow for access to
         uninitialized data, then marking it as committed
         (`insert_from_capacity`).
     *   The user to allocate a buffer, populate it, then pass it to the
@@ -119,10 +119,10 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 Distinctly, `storage_buffer` is move-only, avoiding (depending on `T`)
 potential UB from copying uninitialized elements.
 
-The second possibility is `storage_buffer` as a node-like mechanism (similar
-to the now existent API for associative containers added in [[P0083R3]]) for
-transferring buffers, coupled with default-initialized access APIs for
-`std::vector` (originally proposed by [[P1010R0]], now merged into this paper).
+The second possibility is `storage_node` as a node-like mechanism (similar to
+the now existent API for associative containers added in [[P0083R3]]) for
+transferring buffers, coupled with new APIs for `std::vector` from [[P1010R1]]
+but also merged in this paper).
 
 <xmp>
 std::string GeneratePattern(const std::string& pattern, size_t count) {
@@ -137,7 +137,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
    }
 
    tmp.insert_from_capacity(step * count);
-   return std::string(tmp.extract());
+   return std::string(tmp.extract()); // Transfer via storage_node.
 }
 </xmp>
 
@@ -165,7 +165,7 @@ std::string CompressWrapper(std::string_view input) {
 }
 </xmp>
 
-With the proposed, new container form of `storage_buffer`:
+With the proposed `storage_buffer`:
 
 <xmp>
 std::string CompressWrapper(std::string_view input) {
@@ -186,7 +186,7 @@ std::string CompressWrapper(std::string_view input) {
 }
 </xmp>
 
-With the node-orientated version:
+With `storage_node`:
 <xmp>
 std::string CompressWrapper(std::string_view input) {
     std::vector<char> compressed;
@@ -202,7 +202,7 @@ std::string CompressWrapper(std::string_view input) {
 
     // Shrink compress to its true size.
     compress.insert_from_capacity(size);
-    return std::string(std::move(compressed));
+    return std::string(std::move(compressed)); // Transfer via storage_node.
 }
 </xmp>
 
@@ -259,7 +259,7 @@ static StringData caseFoldAndStripDiacritics(StackBufBuilder* buffer,
 </xmp>
 (Comments re-wrapped.)
 
-## VMWare ## {#vmware}
+## VMware ## {#vmware}
 
 VMware has an internal string builder implementation that avoids `std::string`
 due, in part, to `reserve`'s zero-writing behavior. This is similar in spirit to
@@ -501,36 +501,36 @@ Transferring from `storage_buffer` to `basic_string` and `vector`:
 *   Use explicit `attach`/`detach` APIs or something similar, as presented in
     [[#transferbikeshed]]
 
-## `storage_buffer` as a transfer vehicle ## {#transfer}
+## `storage_node` as a transfer vehicle ## {#transfer}
 
-Alternatively, we contemplate `storage_buffer` as having a similar role for
+Alternatively, we contemplate a `storage_node` as having a similar role for
 `basic_string`/`vector` as `node_handle` provides for associative containers.
 
-`storage_buffer` owns its underlying allocation and is responsible for
+`storage_node` owns its underlying allocation and is responsible for
 destroying any objects and deallocating the backing memory via its allocator.
 
-### `storage_buffer` API ### {#transferapi}
+### `storage_node` API ### {#transferapi}
 
 <xmp>
 template<unspecified>
-class storage_buffer {
+class storage_node {
   public:
     // These type declarations are described in [containers.requirements.general]
     using value_type = see below;
     using allocator_type = see below;
 
-    ~storage_buffer();
-    storage_buffer(storage_buffer&&) noexcept;
-    storage_buffer& operator=(storage_buffer&&);
+    ~storage_node();
+    storage_node(storage_node&&) noexcept;
+    storage_node& operator=(storage_node&&);
 
     allocator_type get_allocator() const;
     explicit operator bool() const noexcept;
     bool empty() const noexcept;
-    void swap(storage_buffer&) noexcept(
+    void swap(storage_node&) noexcept(
         allocator_traits<allocator_type>::propagate_on_container_swap::value ||
         allocator_traits<allocator_type>::is_always_equal::value);
 
-    friend void swap(storage_buffer& x, storage_buffer& y) noexcept(
+    friend void swap(storage_node& x, storage_node& y) noexcept(
         noexcept(x.swap(y))) { x.swap(y); }
 };
 </xmp>
@@ -539,8 +539,8 @@ As-presented, this type can only be constructed by the library, rather than the
 user.  To address the redundant initialization problem, we have two routes
 forward:
 
-*   Adopt [[P1010R0]]'s `uninitialized_data` and `insert_from_capacity` API
-    additions to `vector`
+*   Adopt [[P1010R1]]'s `uninitialized_data` and `insert_from_capacity` API
+    additions to `vector`.
 *   Be able to manipulate the constituent components of the transfer node and
     reassemble it.
 
@@ -564,7 +564,7 @@ forward:
             memcpy(start + i * step, pattern.data(), step);
         }
 
-        return std::string(std::storage_buffer(
+        return std::string(std::storage_node(
             tmp, size + count * step, cap, alloc));
     }
     </xmp>
@@ -608,7 +608,7 @@ forward:
             memcpy(tmp + i * step, pattern.data(), step);
         }
 
-        return std::string(std::storage_buffer(
+        return std::string(std::storage_node(
             tmp, size * count, size * count + 1, 0 /* offset */, alloc));
     }
     </xmp>
@@ -625,11 +625,11 @@ In [**string.modifiers**] add new:
 <blockquote>
 <ins>
 <pre highlight="">
-storage_buffer extract();
+storage_node extract();
 </pre>
 <ol start="3">
 
-<li> *Effects:*  Removes the buffer from the string and returns a `storage_buffer` owning the buffer.  The string is left in a valid state with unspecified value.</li>
+<li> *Effects:*  Removes the buffer from the string and returns a `storage_node` owning the buffer.  The string is left in a valid state with unspecified value.</li>
 
 <li> *Complexity:* - Linear in the size of the sequence. </li>
 
@@ -638,7 +638,7 @@ storage_buffer extract();
 
 <ins>
 <pre highlight="">
-void insert(storage_buffer&& buf);
+void insert(storage_node&& buf);
 </pre>
 <ol start="3">
 
@@ -687,11 +687,11 @@ namespace std {
     template&lt;class InputIterator&gt;
       iterator insert(const_iterator position, InputIterator first, InputIterator last);
     iterator insert(const_iterator position, initializer_list&lt;T&gt; il);
-    <ins>void insert(storage_buffer&& buf);</ins>
+    <ins>void insert(storage_node&& buf);</ins>
     <ins>iterator insert_from_capacity(size_type n);</ins>
     iterator erase(const_iterator position);
     iterator erase(const_iterator first, const_iterator last);
-    <ins>storage_buffer extract();</ins>
+    <ins>storage_node extract();</ins>
 
     ...
 </pre>
@@ -775,11 +775,11 @@ iterator insert_from_capacity(size_type n);
 
 <ins>
 <pre highlight="">
-storage_buffer extract();
+storage_node extract();
 </pre>
 <ol start="3">
 
-<li> *Effects:*  Removes the buffer from the container and returns a `storage_buffer` owning the buffer.</li>
+<li> *Effects:*  Removes the buffer from the container and returns a `storage_node` owning the buffer.</li>
 
 <li> *Complexity:* - Constant time. </li>
 
@@ -788,7 +788,7 @@ storage_buffer extract();
 
 <ins>
 <pre highlight="">
-void insert(storage_buffer&& buf);
+void insert(storage_node&& buf);
 </pre>
 <ol start="3">
 
@@ -826,17 +826,27 @@ What should we call the methods for obtaining and using a node?
 *   `extract` / `insert` for consistency with the APIs of associative containers (added by [[P0083R3]])
 *   `detach` / `attach`
 *   `release` / `reset` for consistency with `unique_ptr`
-*   `get_storage_buffer` / `put_storage_buffer`
+*   `get_storage_node` / `put_storage_node`
 
 ## Allocator Support ## {#allocators}
 
 Allocator aware containers must cooperate with their allocator for object
-construction and destruction. Working with the broader set of implicit lifetime
-types requires that the container use a two step interaction with the
-application. First, the container exposes memory that the application
-initializes. Second, the application tells the container how many objects were
-initialized. The container can then tell the allocator about the newly created
-objects.
+construction and destruction.
+
+### Default Initialization ### {#default}
+
+The "container" approach implies adding "`default_construct`" support to the
+allocator model. Boost allocators, for example, support default initialization
+of container elements. Or, as discussed below perhaps we can remove the
+requirement to call `construct`. See below.
+
+### Implicit Lifetime Types ### {#implicit}
+
+Working with the set of implicit lifetime types defined in [[P0593R2]] requires
+that the container use a two step interaction with the application. First, the
+container exposes memory that the application initializes. Second, the
+application tells the container how many objects were initialized. The container
+can then tell the allocator about the newly created objects.
 
 References and wording are relative to [[N4762]].
 
@@ -875,6 +885,8 @@ Then in [**allocator.traits**] we add a new *optional* member:
 
 </li>
 </ul>
+
+### Remove `[implicit_]` `construct` and `destroy` ? ### {#remove_destroy}
 
 As discussed during the [[post-Rapperswil]] review of [[P1072R0]],
 `implicit_construct` balances out the call to `destroy` when working with
@@ -915,7 +927,7 @@ initialization is much more suited to larger buffers.
 # Alternatives Considered # {#alternatives}
 
 [[P1010R0]] and [[P1072R0]] contemplated providing direct access to
-default-initialized elements of `vector` and `basic_string` respectively.
+uninitialized elements of `vector` and `basic_string` respectively.
 
 *   Boost provides a related optimization for vector-like containers,
     introduced in <a
@@ -946,11 +958,10 @@ boost/container/vector.hpp</a>:
 These optimizations are also supported in Boost Container's `small_vector`,
 `static_vector`, `deque`, `stable_vector`, and `string`.
 
-*   Adding two new methods `uninitialized_data` (to bless access beyond
-    `size()`)
-    and `insert_from_capacity` (to update size without clobbering data beyond
-    the existing size).  (This was proposed by [[P1010R0]] and "Option B" in
-    [[P1072R0]].)
+*   Adding two new methods to `basic_string`: `uninitialized_data` (to bless
+    access beyond `size()`) and `insert_from_capacity` (to update size without
+    clobbering data beyond the existing size). (This was proposed as "Option B"
+    in [[P1072R0]].)
 
 *   Add `basic_string::resize_uninitialized`.
     This resizes the string, but leaves the elements indexed from `[old_size(),
@@ -959,18 +970,26 @@ These optimizations are also supported in Boost Container's `small_vector`,
 
 # Questions for LEWG # {#questions}
 
-*   Does LEWG prefer `storage_buffer` to be a distinct, full-fledged container
-    ([[#container]]) type or should we pursue it purely as a node-like vehicle
-    for transferring buffers ([[#transfer]])?
-    *   If LEWG prefers the transfer type, should it be named?
-    *   If LEWG prefers the transfer type, how do we solve the redundant initialization problem?  (We present additions to `vector`, based on the work of [[P1010R0]] here, or working directly with the raw buffers.)
+* Does LEWG prefer a full-fledged container like `storage_buffer` a limited node
+    transfer type like `storage_node`?
+
+    * If LEWG prefers the transfer type, how do we solve the redundant
+      initialization problem? Additions to `vector`, based on the
+      [[P1010R1]], or working directly with raw buffers?
+
+    * If LEWG prefers the transfer type, should it be a named type, or should be
+      only a concept?
+
 *   What types do we intend to cover (by avoiding initialization costs)?
     *   `char`, `unsigned char`, etc.
-    *   The implicitly constructed types, described by [[P0593R2]]
+    *   The implicit lifetime types, described by [[P0593R2]]
     *   Trivially relocatable types, described by [[P1144]]
 *   Do we need `implicit_construct`, the complement to `destroy`?
+*   Do we need to add `default_construct` to the allocator model?
 *   Do we want to be able to provide an externally-allocated buffer and
     transfer ownership into a `basic_string`/`vector`/`storage_buffer`?
+*   Do we want to support buffer transfer to user defined types?
+*   Do we need to support bookkeeping at the head of allocations?
 
 # History # {#history}
 
@@ -985,7 +1004,7 @@ Applied feedback from LEWG [[post-Rapperswil]] Email Review:
 
 *   Added discussion of design and implementation considerations.
 
-Additionally, the contents of [[P1010R0]] and [[P1072R0]] have been merged.
+*   Most of [[P1010R0]] Was merged into this paper.
 
 <pre class=biblio>
 {
@@ -1019,10 +1038,10 @@ Additionally, the contents of [[P1010R0]] and [[P1072R0]] have been merged.
         "date": "2018-02-11",
         "title": "Implicit creation of objects for low-level object manipulation"
     },
-    "P1010R0": {
-        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1010r0.html",
-        "date": "2018-05-06",
-        "title": "Proposal to expose default-initialized elements for vector"
+    "P1010R1": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1010r1.html",
+        "date": "2018-10-08",
+        "title": "Container support for implicit lifetime types. "
     },
     "P1020R0": {
         "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1020r0.html",
