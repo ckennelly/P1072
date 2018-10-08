@@ -997,10 +997,10 @@ These optimizations are also supported in Boost Container's `small_vector`,
 
 Applied feedback from LEWG [[post-Rapperswil]] Email Review:
 
-*   Shifted to a new vocabulary type: `storage_buffer`
+*   Shifted to a new vocabulary types: `storage_buffer` / `storage_node`
 
     *   Added presentation of `storage_buffer` as a new container type
-    *   Added presentation of `storage_buffer` as a node-like type
+    *   Added presentation of `storage_node` as a node-like type
 
 *   Added discussion of design and implementation considerations.
 
