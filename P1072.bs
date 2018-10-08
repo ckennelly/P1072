@@ -831,12 +831,22 @@ What should we call the methods for obtaining and using a node?
 ## Allocator Support ## {#allocators}
 
 Allocator aware containers must cooperate with their allocator for object
-construction and destruction. Working with the broader set of implicit lifetime
-types requires that the container use a two step interaction with the
-application. First, the container exposes memory that the application
-initializes. Second, the application tells the container how many objects were
-initialized. The container can then tell the allocator about the newly created
-objects.
+construction and destruction.
+
+### Default Initialization ### {#default}
+
+The "container" approach implies adding "`default_construct`" support to the
+allocator model. Boost allocators, for example, support default initialization
+of container elements. Or, as discussed below perhaps we can remove the
+requirement to call `construct`. See below.
+
+### Implicit Lifetime Types ### {#implicit}
+
+Working with the set of implicit lifetime types defined in [[P0593R2]] requires
+that the container use a two step interaction with the application. First, the
+container exposes memory that the application initializes. Second, the
+application tells the container how many objects were initialized. The container
+can then tell the allocator about the newly created objects.
 
 References and wording are relative to [[N4762]].
 
@@ -875,6 +885,8 @@ Then in [**allocator.traits**] we add a new *optional* member:
 
 </li>
 </ul>
+
+### Remove `[implicit_]` `construct` and `destroy` ? ### {#remove_destroy}
 
 As discussed during the [[post-Rapperswil]] review of [[P1072R0]],
 `implicit_construct` balances out the call to `destroy` when working with
