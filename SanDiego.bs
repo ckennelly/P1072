@@ -1,0 +1,280 @@
+<pre class='metadata'>
+Title: Optimized Initialization for basic_string and vector
+Status: P
+Shortname: P1072
+Group: WG21
+Revision: 2
+Editor: Chris Kennelly, Google, ckennelly@google.com
+Editor: Mark Zeren, VMware, mzeren@vmware.com
+Date: 2018-11-07
+Audience: LEWG
+Audience: LWG
+Audience: SG16
+Abstract: Allow access to uninitialized or default initialized elements when working with basic_string and vector.
+URL: http://wg21.link/P1072R1
+Markup Shorthands: markdown yes
+Default Highlight: C++
+</pre>
+
+# Motivation # {#mot}
+
+Performance sensitive code is impacted by the cost of initializing and
+manipulating strings and vectors:  When streaming data into a `basic_string` or
+a `vector`, a programmer is forced with an unhappy choice:
+
+*   Pay for extra initialization (`resize` then copy directly in)
+*   Pay for extra copies (populate a temporary buffer, copy it to the final destination)
+*   Pay for extra "bookkeeping" (`reserve` followed by small appends)
+
+This problem has been solved (as discussed in the paper) in two ways:
+
+*   Avoid STL types
+*   Add a custom API to one's standard library implementation
+
+## Stamping a Pattern ## {#pattern}
+
+Consider writing a pattern several times into a string:
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::string ret;
+
+   ret.reserve(pattern.size() * count);
+   for (size_t i = 0; i < count; i++) {
+     // SUB-OPTIMAL:
+     // * Writes 'count' nulls
+     // * Updates size and checks for potential resize 'count' times
+     ret.append(pattern);
+   }
+
+   return ret;
+}
+</xmp>
+
+These choices are based on the post-Rapperswil LEWG email review of
+[[P1072R0]].
+
+*Option*:
+
+A full-fledged container type, `storage_buffer`, for manipulating uninitialized
+data.
+
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::storage_buffer<char> tmp;
+
+   const auto step = pattern.size();
+   // GOOD:  No initialization
+   tmp.prepare(step * count + 1);
+   for (size_t i = 0; i < count; i++) {
+     // GOOD: No bookkeeping
+     memcpy(tmp.data() + i * step, pattern.data(), step);
+   }
+
+   tmp.commit(step * count);
+   return std::string(std::move(tmp));
+}
+</xmp>
+
+*Option*:
+
+A transfer-orientated node-type, `storage_node`, for moving buffers between
+`basic_string` and `vector`.
+
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::vector<char> tmp;
+
+   const auto step = pattern.size();
+   // GOOD:  No initialization
+   tmp.reserve(step * count + 1);
+   for (size_t i = 0; i < count; i++) {
+     // GOOD: No bookkeeping
+     memcpy(tmp.uninitialized_data() + i * step, pattern.data(), step);
+   }
+
+   tmp.insert_from_capacity(step * count);
+   return std::string(tmp.extract()); // Transfer via storage_node.
+}
+</xmp>
+
+# New Container # {#container}
+
+*   One focus of this container is to make it move-only, as proposed during the
+    [[post-Rapperswil]] review.  This reduces the likelihood that we copy types
+    with trap representations (thereby triggering UB).
+*   Uninitialized data is only accessible from the `storage_buffer` type.  For
+    an API directly manipulating `basic_string` or `vector`, the invariant that
+    uninitialized data is not available is otherwise weakened.
+*   For purposes of the container API, `size()` corresponds to the *committed*
+    portion of the buffer.  This leads to more consistency when working with
+    (and explicitly copying to) other containers via iterators.
+
+# Transfer Type # {#transfer}
+
+*   Similar to the now existent API for associative containers added in
+    [[P0083R3]]
+*   `storage_node` owns its underlying allocation and is responsible for
+    destroying any objects and deallocating the backing memory via its
+    allocator.
+*   New allocations have to happen via an existing standard library type.
+*   `storage_node` allows transferring buffers from `std::string` to
+    `std::vector` and vice-versa.
+
+# More Examples: Interacting with C # {#c}
+
+Consider wrapping a C API while working in terms of C++'s `basic_string`
+vocabulary:
+
+<xmp>
+std::string CompressWrapper(std::string_view input) {
+    std::string compressed;
+    // Compute upper limit of compressed input.
+    size_t size = compressBound(input.size());
+
+    // SUB-OPTIMAL:  Extra initialization
+    compressed.resize(size);
+    int ret = compress(compressed.begin(), &size, input.data(), input.size());
+    if (ret != OK) {
+      throw ...some error...
+    }
+
+    // Shrink compress to its true size.
+    compress.resize(size);
+    return compressed;
+}
+</xmp>
+
+With the proposed `storage_buffer`:
+
+<xmp>
+std::string CompressWrapper(std::string_view input) {
+    std::storage_buffer<char> compressed;
+    // Compute upper limit of compressed input.
+    size_t size = compressBound(input.size());
+
+    // GOOD:  No initialization
+    compressed.prepare(size + 1);
+    int ret = compress(compressed.begin(), &size, input.data(), input.size());
+    if (ret != OK) {
+      throw ...some error...
+    }
+
+    // Shrink compress to its true size.
+    compress.commit(size);
+    return std::string(std::move(compressed));
+}
+</xmp>
+
+With `vector` and `storage_node`:
+<xmp>
+std::string CompressWrapper(std::string_view input) {
+    std::vector<char> compressed;
+    // Compute upper limit of compressed input.
+    size_t size = compressBound(input.size());
+
+    // GOOD:  No initialization
+    compressed.reserve(size);
+    int ret = compress(compressed.begin(), &size, input.data(), input.size());
+    if (ret != OK) {
+      throw ...some error...
+    }
+
+    // Shrink compress to its true size.
+    compress.insert_from_capacity(size);
+    return std::string(std::move(compressed)); // Transfer via storage_node.
+}
+</xmp>
+
+# Questions # {#questions}
+
+## What types do we intend to cover (by avoiding initialization costs)? ## {#coverage}
+
+*   `char`, `unsigned char`, etc.
+*   The implicit lifetime types, described by [[P0593R2]]
+*   Trivially relocatable types, described by [[P1144]]
+
+## What should the type do? ## {#type}
+
+*   Full-fledged container (`storage_buffer`)
+*   Transfer type (`storage_node`)
+    * How do we expose access to uninitialized data?  Via [[P1010R1]] extensions to `vector` or by exposing the raw buffers?
+    * Should it be named?
+
+## What do we do about allocators? ## {#allocators}
+
+*    Add `implicit_construct`
+*    Do we need to add `default_construct` to the allocator model?
+*    Allow `allocator::destroy` to not be paired with `allocator::construct` (or similar)
+     This was mentioned in passing in the [[post-Rapperswil]] review, but not discussed extensively.
+
+## Other Features ## {#external}
+
+*   Do we want to be able to provide an externally-allocated buffer and
+    transfer ownership into a `basic_string`/`vector`/`storage_buffer`?
+*   Do we want to support buffer transfer to user defined types?
+*   Do we need to support bookkeeping at the head of allocations?
+
+<pre class=biblio>
+{
+    "Abseil": {
+        "href": "https://github.com/abseil/abseil-cpp",
+        "date": "2018-09-22",
+        "title": "Abseil"
+    },
+    "post-Rapperswil": {
+        "href": "http://lists.isocpp.org/lib-ext/2018/08/8299.php",
+        "date": "2018-08-26",
+        "title": "LEWG Weekly - P1072"
+    },
+    "N4734": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/n4734.pdf",
+        "date": "2018-04-04",
+        "title": "Working Draft, C++ Extensions for Networking"
+    },
+    "N4762": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/n4762.pdf",
+        "date": "2018-07-07",
+        "title": "Working Draft, Standard for Programming Language C++"
+    },
+    "P0083R3": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0083r3.pdf",
+        "date": "2016-06-24",
+        "title": "Splicing Maps and Sets"
+    },
+    "P0593R2": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0593r2.html",
+        "date": "2018-02-11",
+        "title": "Implicit creation of objects for low-level object manipulation"
+    },
+    "P1010R1": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1010r1.html",
+        "date": "2018-10-08",
+        "title": "Container support for implicit lifetime types. "
+    },
+    "P1020R0": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1020r0.html",
+        "date": "2018-04-08",
+        "title": "Smart pointer creation with default initialization"
+    },
+    "P1072R0": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1072r0.html",
+        "date": "2018-05-04",
+        "title": "Default Initialization for basic_string"
+    },
+    "P1144": {
+        "href": "https://quuxplusone.github.io/blog/code/object-relocation-in-terms-of-move-plus-destroy-draft-7.html",
+        "date": "2018-07-06",
+        "title": "Object relocation in terms of move plus destroy"
+    },
+    "Protobuf": {
+        "href": "https://github.com/protocolbuffers/protobuf",
+        "date": "2018-09-22",
+        "title": "Protocol Buffers"
+    },
+    "Snappy": {
+        "href": "https://github.com/google/snappy",
+        "date": "2018-09-21",
+        "title": "Snappy"
+    }
+}
+</pre>
