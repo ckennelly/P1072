@@ -100,7 +100,8 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 *Option* (not presented in [[P1072R1]]):
 
 "Inject" an externally allocated `storage_node` enabling specialized
-implementations of the dominant, narrow, use cases.
+implementations of the dominant, narrow, use case of `char` and
+`std::allocator`.
 
 <xmp>
 std::string GeneratePattern(const std::string& pattern, size_t count) {
@@ -116,13 +117,13 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 
   // MyNode avoids allocator model changes by supporting only
   // storage_node<char, std::allocator<char>>
-  MyNode tmp = out.extract()
+  MyNode tmp = out.extract();   // Transfer via storage_node.
   for (size_t i = 0; i < count; i++) {
     // GOOD: No bookkeeping
     memcpy(tmp.Data() + i * step, pattern.data(), step);
   }
   tmp.AdjustSize(count * step);
-  out.inject(tmp.extract());
+  out.inject(tmp.Extract());    // Transfer via storage_node.
   return out;
 }
 </xmp>
@@ -237,9 +238,9 @@ library?
     *    Do we need to add `default_construct` to the allocator model?
     *    Allow `allocator::destroy` to not be paired with `allocator::construct` (or similar) This was mentioned in passing in the [[post-Rapperswil]] review, but not discussed extensively.
 
-*   We use a "loophole" of using another, existing type that handles allocation
-    and we just use those buffers?  This would be limited to simple types
-    (`char`, etc.).
+*   We use a "loophole" of using another, user defined type that handles
+    allocation and we just use those buffers? This would be limited to
+    simple types (`char`, etc.) and `std::allocator`.
 
 *   Do we need to support bookkeeping at the head of allocations?
 
