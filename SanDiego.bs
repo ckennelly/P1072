@@ -198,13 +198,13 @@ library?
 
 ## What types do we intend to cover (by avoiding initialization costs)? ## {#coverage}
 
-*   `char`, `unsigned char`, etc.
-*   Default constructible types, described by [[P0593R2]] / [[P1010R1]]
-*   Trivially relocatable types, described by [[P1144]]
+*   Default constructible types, `char`, `unsigned char`, etc.
+*   Implict lifetype types, described by [[P0593R2]] / [[P1010R1]]
+*   Trivially relocatable types (`unique_ptr`), described by [[P1144]]
 
 ## What do we do about allocators? ## {#allocators}
 
-*    Do we fully define the allcoator parts, via some number of options:
+*    Do we fully define the allocator parts, via some number of options:
 
     *    Add `implicit_construct`
     *    Do we need to add `default_construct` to the allocator model?
@@ -222,15 +222,13 @@ library?
     designed to make this optimized initialization easier?
 *   Alternatively, we should do this via `vector` (as proposed in [[P1010R1]])
 
-## Other Features ## {#external}
+## Short Buffer Optimizations ## {#sbo}
 
-*   Do we want to support buffer transfer to user defined types?
+How do we want to support short-buffer optimizations?
 
-*   How do we want to support short-buffer optimizations?
-
-    * Eagerly allocate
-    * Allow someone to manipulate the short-buffer (so long as they do not reallocate)
-    * Fail and/or UB
+* Eagerly allocate
+* Allow someone to manipulate the short-buffer (so long as they do not reallocate)
+* Fail and/or UB
 
 <pre class=biblio>
 {
