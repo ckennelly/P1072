@@ -97,6 +97,10 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 }
 </xmp>
 
+*Option* (not presented in [[P1072R1]]):
+
+TODO accept an externally allocated start, size, capacity, is owned, offset
+
 # New Container # {#container}
 
 *   One focus of this container is to make it move-only, as proposed during the
@@ -187,32 +191,46 @@ std::string CompressWrapper(std::string_view input) {
 
 # Questions # {#questions}
 
+## Interoperability outside of the Standard Library ## {#interop}
+
+Do we want to interoperate with buffers that came from outside of the standard
+library?
+
 ## What types do we intend to cover (by avoiding initialization costs)? ## {#coverage}
 
 *   `char`, `unsigned char`, etc.
-*   The implicit lifetime types, described by [[P0593R2]]
+*   Default constructible types, described by [[P0593R2]] / [[P1010R1]]
 *   Trivially relocatable types, described by [[P1144]]
-
-## What should the type do? ## {#type}
-
-*   Full-fledged container (`storage_buffer`)
-*   Transfer type (`storage_node`)
-    * How do we expose access to uninitialized data?  Via [[P1010R1]] extensions to `vector` or by exposing the raw buffers?
-    * Should it be named?
 
 ## What do we do about allocators? ## {#allocators}
 
-*    Add `implicit_construct`
-*    Do we need to add `default_construct` to the allocator model?
-*    Allow `allocator::destroy` to not be paired with `allocator::construct` (or similar)
-     This was mentioned in passing in the [[post-Rapperswil]] review, but not discussed extensively.
+*    Do we fully define the allcoator parts, via some number of options:
+
+    *    Add `implicit_construct`
+    *    Do we need to add `default_construct` to the allocator model?
+    *    Allow `allocator::destroy` to not be paired with `allocator::construct` (or similar) This was mentioned in passing in the [[post-Rapperswil]] review, but not discussed extensively.
+
+*   We use a "loophole" of using another, existing type that handles allocation
+    and we just use those buffers?  This would be limited to simple types
+    (`char`, etc.).
+
+*   Do we need to support bookkeeping at the head of allocations?
+
+## What should the type do? ## {#type}
+
+*   Should the standard library have a new container (an advanced user type)
+    designed to make this optimized initialization easier?
+*   Alternatively, we should do this via `vector` (as proposed in [[P1010R1]])
 
 ## Other Features ## {#external}
 
-*   Do we want to be able to provide an externally-allocated buffer and
-    transfer ownership into a `basic_string`/`vector`/`storage_buffer`?
 *   Do we want to support buffer transfer to user defined types?
-*   Do we need to support bookkeeping at the head of allocations?
+
+*   How do we want to support short-buffer optimizations?
+
+    * Eagerly allocate
+    * Allow someone to manipulate the short-buffer (so long as they do not reallocate)
+    * Fail and/or UB
 
 <pre class=biblio>
 {
@@ -258,6 +276,11 @@ std::string CompressWrapper(std::string_view input) {
     },
     "P1072R0": {
         "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1072r0.html",
+        "date": "2018-05-04",
+        "title": "Default Initialization for basic_string"
+    },
+    "P1072R1": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1072r1.html",
         "date": "2018-05-04",
         "title": "Default Initialization for basic_string"
     },
