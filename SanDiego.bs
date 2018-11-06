@@ -99,7 +99,34 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 
 *Option* (not presented in [[P1072R1]]):
 
-TODO accept an externally allocated start, size, capacity, is owned, offset
+"Inject" an externally allocated `storage_node` enabling specialized
+implementations of the dominant, narrow, use cases.
+
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+  std::string out;
+  const auto step = pattern.size();
+  // GOOD:  No initialization
+  out.reserve(step * count);
+  if (!out.has_allocation()) {
+    // Fits in small buffer. Fallback to the simple implementation.
+    for (size_t i = 0; i < count; i++) out.append(pattern);
+    return out;
+  }
+
+  // MyNode avoids allocator model changes by supporting only
+  // storage_node<char, std::allocator<char>>
+  MyNode tmp = out.extract()
+  for (size_t i = 0; i < count; i++) {
+    // GOOD: No bookkeeping
+    memcpy(tmp.Data() + i * step, pattern.data(), step);
+  }
+  tmp.AdjustSize(count * step);
+  out.inject(tmp.extract());
+  return out;
+}
+</xmp>
+
 
 # New Container # {#container}
 
