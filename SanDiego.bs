@@ -36,17 +36,17 @@ This problem has been solved (as discussed in the paper) in two ways:
 Consider writing a pattern several times into a string:
 <xmp>
 std::string GeneratePattern(const std::string& pattern, size_t count) {
-   std::string ret;
+  std::string ret;
 
-   ret.reserve(pattern.size() * count);
-   for (size_t i = 0; i < count; i++) {
-     // SUB-OPTIMAL:
-     // * Writes 'count' nulls
-     // * Updates size and checks for potential resize 'count' times
-     ret.append(pattern);
-   }
+  ret.reserve(pattern.size() * count);
+  for (size_t i = 0; i < count; i++) {
+    // SUB-OPTIMAL:
+    // * Writes 'count' nulls
+    // * Updates size and checks for potential resize 'count' times
+    ret.append(pattern);
+  }
 
-   return ret;
+  return ret;
 }
 </xmp>
 
@@ -60,18 +60,18 @@ data.
 
 <xmp>
 std::string GeneratePattern(const std::string& pattern, size_t count) {
-   std::storage_buffer<char> tmp;
+  std::storage_buffer<char> tmp;
 
-   const auto step = pattern.size();
-   // GOOD:  No initialization
-   tmp.prepare(step * count + 1);
-   for (size_t i = 0; i < count; i++) {
-     // GOOD: No bookkeeping
-     memcpy(tmp.data() + i * step, pattern.data(), step);
-   }
+  const auto step = pattern.size();
+  // GOOD:  No initialization
+  tmp.prepare(step * count + 1);
+  for (size_t i = 0; i < count; i++) {
+    // GOOD: No bookkeeping
+    memcpy(tmp.data() + i * step, pattern.data(), step);
+  }
 
-   tmp.commit(step * count);
-   return std::string(std::move(tmp));
+  tmp.commit(step * count);
+  return std::string(std::move(tmp));
 }
 </xmp>
 
@@ -82,18 +82,18 @@ A transfer-orientated node-type, `storage_node`, for moving buffers between
 
 <xmp>
 std::string GeneratePattern(const std::string& pattern, size_t count) {
-   std::vector<char> tmp;
+  std::vector<char> tmp;
 
-   const auto step = pattern.size();
-   // GOOD:  No initialization
-   tmp.reserve(step * count + 1);
-   for (size_t i = 0; i < count; i++) {
-     // GOOD: No bookkeeping
-     memcpy(tmp.uninitialized_data() + i * step, pattern.data(), step);
-   }
+  const auto step = pattern.size();
+  // GOOD:  No initialization
+  tmp.reserve(step * count + 1);
+  for (size_t i = 0; i < count; i++) {
+    // GOOD: No bookkeeping
+    memcpy(tmp.uninitialized_data() + i * step, pattern.data(), step);
+  }
 
-   tmp.insert_from_capacity(step * count);
-   return std::string(tmp.extract()); // Transfer via storage_node.
+  tmp.insert_from_capacity(step * count);
+  return std::string(tmp.extract()); // Transfer via storage_node.
 }
 </xmp>
 
@@ -131,20 +131,20 @@ vocabulary:
 
 <xmp>
 std::string CompressWrapper(std::string_view input) {
-    std::string compressed;
-    // Compute upper limit of compressed input.
-    size_t size = compressBound(input.size());
+   std::string compressed;
+   // Compute upper limit of compressed input.
+   size_t size = compressBound(input.size());
 
-    // SUB-OPTIMAL:  Extra initialization
-    compressed.resize(size);
-    int ret = compress(compressed.begin(), &size, input.data(), input.size());
-    if (ret != OK) {
-      throw ...some error...
-    }
+   // SUB-OPTIMAL:  Extra initialization
+   compressed.resize(size);
+   int ret = compress(compressed.begin(), &size, input.data(), input.size());
+   if (ret != OK) {
+     throw ...some error...
+   }
 
-    // Shrink compress to its true size.
-    compress.resize(size);
-    return compressed;
+   // Shrink compress to its true size.
+   compress.resize(size);
+   return compressed;
 }
 </xmp>
 
@@ -152,40 +152,40 @@ With the proposed `storage_buffer`:
 
 <xmp>
 std::string CompressWrapper(std::string_view input) {
-    std::storage_buffer<char> compressed;
-    // Compute upper limit of compressed input.
-    size_t size = compressBound(input.size());
+   std::storage_buffer<char> compressed;
+   // Compute upper limit of compressed input.
+   size_t size = compressBound(input.size());
 
-    // GOOD:  No initialization
-    compressed.prepare(size + 1);
-    int ret = compress(compressed.begin(), &size, input.data(), input.size());
-    if (ret != OK) {
-      throw ...some error...
-    }
+   // GOOD:  No initialization
+   compressed.prepare(size + 1);
+   int ret = compress(compressed.begin(), &size, input.data(), input.size());
+   if (ret != OK) {
+     throw ...some error...
+   }
 
-    // Shrink compress to its true size.
-    compress.commit(size);
-    return std::string(std::move(compressed));
+   // Shrink compress to its true size.
+   compress.commit(size);
+   return std::string(std::move(compressed));
 }
 </xmp>
 
 With `vector` and `storage_node`:
 <xmp>
 std::string CompressWrapper(std::string_view input) {
-    std::vector<char> compressed;
-    // Compute upper limit of compressed input.
-    size_t size = compressBound(input.size());
+   std::vector<char> compressed;
+   // Compute upper limit of compressed input.
+   size_t size = compressBound(input.size());
 
-    // GOOD:  No initialization
-    compressed.reserve(size);
-    int ret = compress(compressed.begin(), &size, input.data(), input.size());
-    if (ret != OK) {
-      throw ...some error...
-    }
+   // GOOD:  No initialization
+   compressed.reserve(size);
+   int ret = compress(compressed.begin(), &size, input.data(), input.size());
+   if (ret != OK) {
+     throw ...some error...
+   }
 
-    // Shrink compress to its true size.
-    compress.insert_from_capacity(size);
-    return std::string(std::move(compressed)); // Transfer via storage_node.
+   // Shrink compress to its true size.
+   compress.insert_from_capacity(size);
+   return std::string(std::move(compressed)); // Transfer via storage_node.
 }
 </xmp>
 
