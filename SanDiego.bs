@@ -151,6 +151,28 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 *   New allocations have to happen via an existing standard library type.
 *   `storage_node` allows transferring buffers from `std::string` to
     `std::vector` and vice-versa.
+*   *If* materialized it might look like (not presented in [[P1072R1]]):
+
+<xmp>
+template<class T, class Alloc = std::allocator<T>>
+class storage_node  {
+public:
+   ...
+   ~storage_node { /* Deallocate. */ }
+
+   // Accessors.
+   pointer        allocation() const;
+   T*             data() const;
+   size_type      size() const;
+   size_type      capacity() const;
+   allocator_type get_allocator() const; // Over-simplified.
+   bool           is_allocated() const;  // Small buffer support.
+
+   // Mutators.
+   void release() noexcept;
+};
+
+</xmp>
 
 # More Examples: Interacting with C # {#c}
 
