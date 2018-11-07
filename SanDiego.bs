@@ -239,6 +239,15 @@ std::string CompressWrapper(std::string_view input) {
 }
 </xmp>
 
+# Implementation Experience # {#implementations}
+
+*   MongoDB/VMware: string builders
+*   Google: `string::resize_uninitialized`
+*   [[N4734]] (Networking TS): dynamic buffer
+
+Additionally, the authors are aware of code that *avoids* the standard library
+types in order to *avoid this issue*.
+
 # Questions # {#questions}
 
 ## Interoperability outside of the Standard Library ## {#interop}
