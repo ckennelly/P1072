@@ -1,16 +1,16 @@
 <pre class='metadata'>
-Title: Optimized Initialization for basic_string and vector
+Title: P1072 San Diego LEWGI Slides
 Status: P
-Shortname: P1072
+Shortname: P1072slides
 Group: WG21
-Revision: 2
+Revision: 0
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
 Date: 2018-11-07
 Audience: LEWG
 Audience: LWG
 Audience: SG16
-Abstract: Allow access to uninitialized or default initialized elements when working with basic_string and vector.
+Abstract: P1072 San Diego LEWGI Slides
 URL: http://wg21.link/P1072R1
 Markup Shorthands: markdown yes
 Default Highlight: C++
