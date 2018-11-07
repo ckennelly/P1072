@@ -31,6 +31,11 @@ This problem has been solved (as discussed in the paper) in two ways:
 *   Avoid STL types
 *   Add a custom API to one's standard library implementation
 
+LEWG reflector discussion directed us to explore "node" extraction
+interfaces. SG16 (Unicode) members suggested that this capability
+*may* be useful for efficient move-conversion between `std::string`
+and some future `utf8string`, for example.
+
 ## Stamping a Pattern ## {#pattern}
 
 Consider writing a pattern several times into a string:
