@@ -151,7 +151,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 *   New allocations have to happen via an existing standard library type.
 *   `storage_node` allows transferring buffers from `std::string` to
     `std::vector` and vice-versa.
-*   *If* matrialized it might look like (not presented in [[P1072R1]]):
+*   *If* materialized it might look like (not presented in [[P1072R1]]):
 
 <xmp>
 template<class T, class Alloc = std::allocator<T>>
