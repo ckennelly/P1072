@@ -478,6 +478,45 @@ These optimizations are also supported in Boost Container's `small_vector`,
 
 2.  Do these design choices *permanently preclude* extensions in the future?
 
+3.  Do we allocate when transferring from a `string` in the SSO state or do we
+    allow the post-transfer capacity of `storage_buffer` to differ?
+
+    <xmp>
+    string s;
+    const auto old_capacity = s.capacity();
+
+    storage_buffer<char> buf(std::move(s));
+    const auto new_capacity = buf.capacity();
+
+    // What is the result of?
+    old_capacity <=> new_capacity
+    </xmp>
+
+4.  **Ergonomics**:  Do we require users to explicitly allocate space for the
+    null terminator (when the buffer is transferred to `basic_string`) or does
+    `prepare` guarantee it allocates "one past" the request?
+
+    <xmp>
+    string fill(size_t size) {
+      storage_buffer<char> buf;
+      // Intentionally using prepare(size), not prepare(size + 1)
+      buf.prepare(size);
+
+      // Exposition only:  We can do this with the current library.
+      memset(buf.data(), 0xAB, size);
+
+      buf.commit(size);
+
+      // What action do we take?
+      // * Have prepare reserve enough space
+      // * Reallocate
+      // * Throw
+      // * UB
+      string s(std::move(s));
+      ...
+    }
+    </xmp>
+
 # History # {#history}
 
 ## R1 &rarr; D2 ## {#D2}
