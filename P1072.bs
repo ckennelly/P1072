@@ -302,10 +302,10 @@ for the null terminator should be contemplated in a call to `prepare`.
 void commit(size_type n);
 </xmp>
 
-*   *Requires*: `n <= capacity() - size()`
-*   *Effects*:  Adds `n` elements to the sequence starting at `data()+size()`.
+*   *Requires*: `n <= capacity()`
+*   *Effects*:  Adds `n` elements to the sequence starting at `data()`.
 *   *Complexity*: Constant time
-*   *Remarks*:  The application must have been initialized since the proceeding
+*   *Remarks*:  The contents must have been initialized since the proceeding
     call to `prepare` otherwise the behavior is undefined.
 
 When moving `storage_buffer` into a `basic_string`, only the *committed*
