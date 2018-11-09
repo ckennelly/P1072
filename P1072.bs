@@ -478,7 +478,12 @@ These optimizations are also supported in Boost Container's `small_vector`,
 
 2.  Do these design choices *permanently preclude* extensions in the future?
 
-3.  Do we allocate when transferring from a `string` in the SSO state or do we
+3.  `basic_string` discusses "char-like" types.  How should we constrain the types that can interact with `storage_buffer`?
+    *   `char`, `unsigned char`, etc.
+    *   The implicit lifetime types, requiring [[P0593R2]]
+    *   Trivially relocatable types, requiring [[P1144R0]]
+
+4.  Do we allocate when transferring from a `string` in the SSO state or do we
     allow the post-transfer capacity of `storage_buffer` to differ?
 
     <xmp>
@@ -492,7 +497,7 @@ These optimizations are also supported in Boost Container's `small_vector`,
     old_capacity <=> new_capacity
     </xmp>
 
-4.  **Ergonomics**:  Do we require users to explicitly allocate space for the
+5.  **Ergonomics**:  Do we require users to explicitly allocate space for the
     null terminator (when the buffer is transferred to `basic_string`) or does
     `prepare` guarantee it allocates "one past" the request?
 
@@ -678,9 +683,9 @@ Applied feedback from LEWG [[post-Rapperswil]] Email Review:
         "date": "2018-10-07",
         "title": "Optimized Initialization for basic_string and vector"
     },
-    "P1144": {
-        "href": "https://quuxplusone.github.io/blog/code/object-relocation-in-terms-of-move-plus-destroy-draft-7.html",
-        "date": "2018-07-06",
+    "P1144R0": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1144r0.html",
+        "date": "2018-10-04",
         "title": "Object relocation in terms of move plus destroy"
     },
     "Protobuf": {
