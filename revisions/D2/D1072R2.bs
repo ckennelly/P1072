@@ -1,0 +1,702 @@
+<pre class='metadata'>
+Title: Optimized Initialization for basic_string
+Status: D
+Shortname: P1072
+Group: WG21
+Revision: 2
+Editor: Chris Kennelly, Google, ckennelly@google.com
+Editor: Mark Zeren, VMware, mzeren@vmware.com
+Date: 2018-11-08
+Audience: LEWG
+Audience: LWG
+Audience: SG16
+Abstract: Allow access to uninitialized or default initialized elements when working with basic_string
+URL: http://wg21.link/D1072R2
+Markup Shorthands: markdown yes
+Default Highlight: C++
+</pre>
+
+# Motivation # {#mot}
+
+`basic_string` provides an invariant that the objects it controls are always
+value, direct, move, or copy initialized. It turns out that there are other
+ways that we might want to create objects.
+
+Performance sensitive code is impacted by the cost of initializing and
+manipulating strings:  When streaming data into a `basic_string`, a programmer
+is forced with an unhappy choice:
+
+*   Pay for extra initialization (`resize` then copy directly in)
+*   Pay for extra copies (populate a temporary buffer, copy it to the final destination)
+*   Pay for extra "bookkeeping" (`reserve` followed by small appends)
+
+C++'s hallmark is to write efficient code by construction and this proposal
+seeks to enable that.
+
+Sometimes, it is useful to manipulate strings without paying for the
+bookkeeping overhead of null termination or SBO.  This paper proposes a
+mechanism to transfer ownership of a `basic_string`'s memory "allocation" (if
+it has one) to a "compatible" `storage_buffer`. After manipulation, the
+allocation can be transferred back to the string.
+
+## Stamping a Pattern ## {#pattern}
+
+Consider writing a pattern several times into a string:
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::string ret;
+
+   ret.reserve(pattern.size() * count);
+   for (size_t i = 0; i < count; i++) {
+     // SUB-OPTIMAL:
+     // * Writes 'count' nulls
+     // * Updates size and checks for potential resize 'count' times
+     ret.append(pattern);
+   }
+
+   return ret;
+}
+</xmp>
+
+Alternatively, we could adjust the output string’s size to its final size,
+avoiding the bookkeeping in `append` at the cost of extra initialization:
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::string ret;
+
+   const auto step = pattern.size();
+   // SUB-OPTIMAL: We memset step*count bytes only to overwrite them.
+   ret.resize(step * count);
+   for (size_t i = 0; i < count; i++) {
+     // GOOD: No bookkeeping
+     memcpy(ret.data() + i * step, pattern.data(), step);
+   }
+
+   return ret;
+}
+</xmp>
+
+We propose `storage_buffer` to avoid this tradeoff.
+
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::storage_buffer<char> tmp;
+
+   const auto step = pattern.size();
+   // GOOD:  No initialization
+   tmp.prepare(step * count + 1);
+   for (size_t i = 0; i < count; i++) {
+     // GOOD: No bookkeeping
+     memcpy(tmp.data() + i * step, pattern.data(), step);
+   }
+
+   tmp.commit(step * count);
+   return std::string(std::move(tmp));
+}
+</xmp>
+
+## Interacting with C ## {#c}
+
+Consider wrapping a C API while working in terms of C++'s `basic_string`
+vocabulary.  We *anticipate* overallocating, as computation of the *length* of
+the data is done simultaneously with the computation of the *contents*.
+
+<xmp>
+extern "C" int compress(void* out, size_t* out_size, const void* in, size_t in_size);
+
+std::string CompressWrapper(std::string_view input) {
+    std::string compressed;
+    // Compute upper limit of compressed input.
+    size_t size = compressBound(input.size());
+
+    // SUB-OPTIMAL:  Extra initialization
+    compressed.resize(size);
+    int ret = compress(compressed.begin(), &size, input.data(), input.size());
+    if (ret != OK) {
+      throw ...some error...
+    }
+
+    // Shrink compress to its true size.
+    compress.resize(size);
+    return compressed;
+}
+</xmp>
+
+With the proposed `storage_buffer`:
+
+<xmp>
+std::string CompressWrapper(std::string_view input) {
+    std::storage_buffer<char> compressed;
+    // Compute upper limit of compressed input.
+    size_t size = compressBound(input.size());
+
+    // GOOD:  No initialization
+    compressed.prepare(size + 1);
+    int ret = compress(compressed.begin(), &size, input.data(), input.size());
+    if (ret != OK) {
+      throw ...some error...
+    }
+
+    // Shrink compress to its true size.
+    compress.commit(size);
+    return std::string(std::move(compressed));
+}
+</xmp>
+
+# Proposal # {#prop}
+
+We propose a new container type `std::storage_buffer`
+
+<xmp>
+namespace std {
+
+template<typename T, typename Allocator = std::allocator<T>>
+class storage_buffer {
+  public:
+    // types
+    using value_type             = T;
+    using allocator_type         = Allocator;
+    using pointer                = T*;
+    using const_pointer          = const T*;
+    using reference              = T&;
+    using const_reference        = const T&;
+    using size_type              = *implementation-defined*;
+    using iterator               = *implementation-defined*;
+    using const_iterator         = *implementation-defined*;
+    using reverse_iterator       = *implementation-defined*;
+    using const_reverse_iterator = *implementation-defined*;
+
+    // constructors/destructors
+    constexpr storage_buffer() noexcept;
+    storage_buffer(storage_buffer&& s) noexcept;
+    storage_buffer(basic_string<T, char_traits<T>, Allocator>&& s);
+    ~storage_buffer();
+    allocator_type get_allocator() const noexcept;
+
+    // assignment
+    storage_buffer& operator=(storage_buffer&& s) noexcept;
+    storage_buffer& operator=(basic_string<T, char_traits<T>, Allocator>&& s);
+
+    // iterators
+    iterator               begin() noexcept;
+    const_iterator         begin() const noexcept;
+    iterator               end() noexcept;
+    const_iterator         end() const noexcept;
+    reverse_iterator       rbegin() noexcept;
+    const_reverse_iterator rbegin() const noexcept;
+    reverse_iterator       rend() noexcept;
+    const_reverse_iterator rend() const noexcept;
+
+    const_iterator         cbegin() const noexcept;
+    const_iterator         cend() const noexcept;
+    const_reverse_iterator crbegin() const noexcept;
+    const_reverse_iterator crend() const noexcept;
+
+    // capacity
+    [[nodiscard]] bool empty() const noexcept;
+    size_type size() const noexcept;
+    size_type max_size() const noexcept;
+    size_type capacity() const noexcept;
+
+    void prepare(size_type n);
+    void commit(size_type n);
+
+    // element access
+    reference       operator[](size_type n);
+    const_reference operator[](size_type n) const;
+    reference       at(size_type n);
+    const_reference at(size_type n) const;
+    reference       front();
+    const_reference front() const;
+    reference       back();
+    const_reference back() const;
+
+    // data access
+    pointer data() noexcept;
+    const_pointer data() const noexcept;
+
+    // modifiers
+    void swap(storage_buffer&) noexcept(
+      allocator_traits<Allocator>::propagate_on_container_swap::value ||
+      allocator_traits<Allocator>::is_always_equal::value);
+
+    // Disable copy
+    storage_buffer(const storage_buffer&) = delete;
+    storage_buffer& operator=(const storage_buffer&) = delete;
+};
+
+}  // namespace std
+</xmp>
+
+## Design Considerations ## {#design}
+
+One focus of this container is to make it move-only, as proposed during the
+[[post-Rapperswil]] review.  This reduces the likelihood that we copy types
+with trap representations (thereby triggering UB).
+
+Uninitialized data is only accessible from the `storage_buffer` type.  For an
+API directly manipulating `basic_string`, the invariant that uninitialized data
+is not available is otherwise weakened.  The approach of [[P1072R0]]
+(`resize_uninitialized`) required choosing between:
+
+*   Weakening the null termination invariant
+*   Exposing uninitialized data in an ordinary `basic_string` unexpectedly
+
+By using a distinct type, we gain several benefits:
+
+*   Crossing an API boundary with a `storage_buffer` is much more obvious than
+    a "`basic_string` with possibly uninitialized data."  Uninitialized bytes
+    (the promise made by `commit`) never escape into the valid range of
+    `basic_string`.
+*   Sanitizers can continue to restrict accesses for `basic_string` to `[0,
+    size()]`:  We do not have to figure out if the program should have access
+    beyond the end of the string.
+*   Sanitizers can check that the "committed" region is initialized when
+    transferring from `storage_buffer` into `basic_string`.
+
+For purposes of the container API, `size()` corresponds to the *committed*
+portion of the buffer.  This leads to more consistency when working with (and
+explicitly copying to) other containers via iterators, for example:
+
+<xmp>
+    std::storage_buffer<char> buf;
+    buf.prepare(100);
+    *fill in data*
+    buf.commit(50);
+
+    std::string a(buf.begin(), buf.end());
+    std::string b(std::move(buf));
+
+    assert(a == b);
+</xmp>
+
+`basic_string` is often implemented with a short string optimization (SSO).  We
+can expose knowledge of that in our API (whether the buffer is allocated or
+not), but the desire to avoid unneeded initialization is much more suited to
+larger buffers.
+
+## API Surface ## {#containerapi}
+
+Besides the well-known container APIs, `storage_buffer` would have several
+novel APIs:
+
+<xmp>
+void prepare(size_type n);
+</xmp>
+
+*   *Effects*:  After `prepare()`, `capacity() >= n` and ensures that `[data(),
+    data()+capacity())` is a valid range.  Note that `[data()+size(),
+    data()+capacity())` may contain indeterminate values.  Reallocation occurs
+    if and only if the current capacity is less than `n`.
+*   *Complexity*: At most linear time in the size of the sequence.
+*   *Throws*: `length_error` if `n > max_size()`.  `Allocator::allocate` may throw.
+*   *Remarks*: Reallocation invalidates all references, pointers, and iterators
+    referring to elements of the sequence.
+
+This is similar to `basic_string::reserve` (see [[#containerbikeshed]]), except
+we need to explicitly guarantee that `[data()+size(),data()+capacity())` is a
+valid range.  For allocation and copy-free transfers into `basic_string`, space
+for the null terminator should be contemplated in a call to `prepare`.
+
+<xmp>
+void commit(size_type n);
+</xmp>
+
+*   *Requires*: `n <= capacity()`
+*   *Effects*:  Adds `n` elements to the sequence starting at `data()`.
+*   *Complexity*: Constant time
+*   *Remarks*:  The contents must have been initialized since the proceeding
+    call to `prepare` otherwise the behavior is undefined.
+
+When moving `storage_buffer` into a `basic_string`, only the *committed*
+(`[data(), data()+size())`) contents are preserved.
+
+<xmp>
+basic_string(storage_buffer&& buf);
+</xmp>
+
+*   *Effects*:  Constructs an object of class `basic_string`
+*   *Ensures*:  `data()` points at the first element of an allocated copy of
+    the array whose first element is pointed at by the original value
+    `buf.data()`, `size()` is equal to the original value of `buf.size()`, and
+    `capacity()` is a value at least as large as `size()`.  `buf` is left in a
+    valid state with an unspecified value.
+*   *Remarks*:  Reallocation may occur if `buf.size() == buf.capacity()`,
+    leaving no room for the "null terminator" [24.3.2].
+
+## Bikeshedding ## {#containerbikeshed}
+
+What names do we want to use for these methods:
+
+Sizing the default initialized region:
+
+*   `prepare` as presented (similar to [[N4734]] the names used for *dynamic buffer*).
+*   `reserve` for consistency with existing types
+
+Notifying the container that a region has been initialized:
+
+*   `commit` as presented (similar to [[N4734]]).
+*   `insert_from_capacity`
+*   `append_from_capacity`
+*   `resize_uninitialized`, but the elements `[size(), size()+n)` have been initialized
+*   `extend`
+
+Transferring from `storage_buffer` to `basic_string`:
+
+*   Use move construction/assignment (as presented)
+*   `extract` / `insert` for consistency with the APIs of associative
+    containers (added by [[P0083R3]])
+*   `detach` / `attach`
+*   `release` / `reset` for consistency with `unique_ptr`
+*   `get_storage_node` / `put_storage_node`
+
+# Related Work # {#related}
+
+## Google ## {#google}
+
+Google has a local extension to `basic_string` called `resize_uninitialized`
+and is wrapped as `STLStringResizeUninitialized`.
+
+*   [[Abseil]] uses this to avoid bookkeeping overheads in `StrAppend` and
+    `StrCat`.
+*   [[Snappy]]
+
+    *   In <a href="https://github.com/google/snappy/blob/master/snappy.cc#L1318">decompression</a>, the final size of the output buffer is known before the contents are ready.
+    *   During <a href="https://github.com/google/snappy/blob/master/snappy.cc#L1386">compression</a>, an upperbound on the final compressed size is known, allowing data to be efficiently added to the output buffer (eliding `append`'s checks) and the string to be shrunk to its final, correct size.
+
+*   [[Protobuf]] avoids extraneous copies or initialization when the
+    size is known before data is available (especially during parsing or
+    serialization).
+
+## MongoDB ## {#mongodb}
+
+MongoDB has a string builder that could have been implemented in terms of
+`basic_string` as a return value. However, as explained by Mathias Stearn, zero
+initialization was measured and was too costly. Instead a custom string builder
+type is used:
+
+E.g.: <a
+href="https://github.com/mongodb/mongo/blob/67da083face9dabdf95a5ffb72d3da675269b4c7/src/mongo/db/fts/unicode/string.h#L128-L143">
+https://github.com/mongodb/mongo/blob/master/src/mongo/db/fts/unicode/string.h
+</a>
+
+<xmp>
+/**
+ * Strips diacritics and case-folds the utf8 input string, as needed to support
+ * options.
+ *
+ * The options field specifies what operations to *skip*, so kCaseSensitive
+ * means to skip case folding and kDiacriticSensitive means to skip diacritic
+ * striping. If both flags are specified, the input utf8 StringData is returned
+ * directly without any processing or copying.
+ *
+ * If processing is performed, the returned StringData will be placed in
+ * buffer.  buffer's contents (if any) will be replaced. Since we may return
+ * the input unmodified the returned StringData's lifetime is the shorter of
+ * the input utf8 and the next modification to buffer. The input utf8 must not
+ * point into buffer.
+ */
+static StringData caseFoldAndStripDiacritics(StackBufBuilder* buffer,
+                                             StringData utf8,
+                                             SubstrMatchOptions options,
+                                             CaseFoldMode mode);
+</xmp>
+(Comments re-wrapped.)
+
+## VMware ## {#vmware}
+
+VMware has an internal string builder implementation that avoids `std::string`
+due, in part, to `reserve`'s zero-writing behavior. This is similar in spirit to
+the MongoDB example above.
+
+## Discussion on std-proposals ## {#std}
+
+This topic was discussed in 2013 on std-proposals in a thread titled "Add
+basic_string::resize_uninitialized (or a similar mechanism)":</br> <a
+href="https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0">
+https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0</a>
+
+## DynamicBuffer ## {#dynamicbuffer}
+
+The [[N4734]] (the Networking TS) has *dynamic buffer* types.
+
+## P1020R0 ## {#p1020}
+
+See also [[P1020R0]] "Smart pointer creation functions for default
+initialization".
+
+# Alternatives Considered # {#alternatives}
+
+[[P1010R1]] and [[P1072R0]] contemplated providing direct access to
+uninitialized elements of `vector` and `basic_string` respectively.
+
+*   Boost provides a related optimization for vector-like containers,
+    introduced in <a
+    href="https://github.com/boostorg/container/commit/14f092ab00def8e692b81d57d0466a617a6f6130">
+    [SVN r85964] </a> by Ion Gaztañaga.
+
+E.g.: <a
+href="https://github.com/boostorg/container/blob/develop/include/boost/container/vector.hpp">
+boost/container/vector.hpp</a>:
+
+<xmp>
+   //! <b>Effects</b>: Constructs a vector that will use a copy of allocator a
+   //!   and inserts n default initialized values.
+   //!
+   //! <b>Throws</b>: If allocator_type's allocation
+   //!   throws or T's default initialization throws.
+   //!
+   //! <b>Complexity</b>: Linear to n.
+   //!
+   //! <b>Note</b>: Non-standard extension
+   vector(size_type n, default_init_t);
+   vector(size_type n, default_init_t, const allocator_type &a)
+   ...
+   void resize(size_type new_size, default_init_t);
+   ...
+</xmp>
+
+These optimizations are also supported in Boost Container's `small_vector`,
+`static_vector`, `deque`, `stable_vector`, and `string`.
+
+*   Adding two new methods to `basic_string`: `uninitialized_data` (to bless
+    access beyond `size()`) and `insert_from_capacity` (to update size without
+    clobbering data beyond the existing size). (This was proposed as "Option B"
+    in [[P1072R0]].)
+
+*   Add `basic_string::resize_uninitialized`.
+    This resizes the string, but leaves the elements indexed from `[old_size(),
+    new_size())` default initialized.  (This was originally "Option A" in
+    [[P1072R0]].)
+
+# Questions for LEWG # {#questions}
+
+1.  Does LEWG concur with this "minimum viable product?"
+    * Improvements to `vector` initialization left to [[P1010R1]]
+    * No ability to transfer buffers between `string` and `vector`
+    * No ability to extract/insert a user-allocated `T*` with `string`
+
+2.  Do these design choices *permanently preclude* extensions in the future?
+
+3.  `basic_string` discusses "char-like" types.  How should we constrain the types that can interact with `storage_buffer`?
+    *   `char`, `unsigned char`, etc.
+    *   The implicit lifetime types, requiring [[P0593R2]]
+    *   Trivially relocatable types, requiring [[P1144R0]]
+
+4.  Do we allocate when transferring from a `string` in the SSO state or do we
+    allow the post-transfer capacity of `storage_buffer` to differ?
+
+    <xmp>
+    string s;
+    const auto old_capacity = s.capacity();
+
+    storage_buffer<char> buf(std::move(s));
+    const auto new_capacity = buf.capacity();
+
+    // What is the result of?
+    old_capacity <=> new_capacity
+    </xmp>
+
+5.  **Ergonomics**:  Do we require users to explicitly allocate space for the
+    null terminator (when the buffer is transferred to `basic_string`) or does
+    `prepare` guarantee it allocates "one past" the request?
+
+    <xmp>
+    string fill(size_t size) {
+      storage_buffer<char> buf;
+      // Intentionally using prepare(size), not prepare(size + 1)
+      buf.prepare(size);
+
+      // Exposition only:  We can do this with the current library.
+      memset(buf.data(), 0xAB, size);
+
+      buf.commit(size);
+
+      // What action do we take?
+      // * Have prepare reserve enough space
+      // * Reallocate
+      // * Throw
+      // * UB
+      string s(std::move(s));
+      ...
+    }
+    </xmp>
+
+# History # {#history}
+
+## R1 &rarr; D2 ## {#D2}
+
+Applied feedback from [[LEWGI San Diego]] review.
+
+Polls:
+
+We should promise more commitee time to [[P1072R1]], knowing that our time is
+scarce and this will leave less time for other work?  *Unanimous consent*
+
+*   Limited interface to `basic_string` initialization.  This does not preclude
+    an eventual transfer vehicle for `basic_string`, `vector`, and Unicode
+    strings.
+*   We do not expose the ability to separately allocate a buffer and inject it
+    into a standard library container type.  We anticipate this interface would
+    be error-prone and could impair implementation flexibility for standard
+    library types.  Nonetheless, this extension is not precluded in the future.
+
+    <xmp>
+    std::string GeneratePattern(const std::string& pattern, size_t count) {
+        const auto step = pattern.size();
+
+        // GOOD:  No initialization
+        std::string ret;
+        ret.reserve(step * count);
+
+        auto tmp = ret.release();
+
+        char* start = tmp.data();
+        auto  size  = tmp.size();
+        auto  cap   = tmp.capacity();
+        tmp.release();
+
+        for (size_t i = 0; i < count; i++) {
+            // GOOD: No bookkeeping
+            memcpy(start + i * step, pattern.data(), step);
+        }
+
+        return std::string(std::storage_node(
+            tmp, size + count * step, cap, alloc));
+    }
+    </xmp>
+
+    (It is important to reiterate that the above implementation is possible
+    because we statically know that the allocator is `std::allocator` and that
+    the `value_type` is `char`. A generic implementation of this pattern would
+    need to be constrained based on allocators, allocator traits, and value
+    types. Future library and language extensions may expand the set of
+    applicable types and may make it easier to constrain generic
+    implementations.)
+
+    Allowing users to provide their own `allocator::allocate`'d buffers runs
+    into the "offset problem".  Consider an implementation that stores its
+    `size` and `capacity` inline with its data, so `sizeof(vector) ==
+    sizeof(void*)`.
+
+    <xmp>
+    class container {
+      struct Rep {
+        size_t size;
+        size_t capacity;
+      };
+
+      Rep* rep_;
+    };
+    </xmp>
+
+    Going back to our original motivating examples:
+
+    <xmp>
+    std::string GeneratePattern(const std::string& pattern, size_t count) {
+        const auto step = pattern.size();
+
+        // GOOD:  No initialization
+        std::allocator<char> alloc;
+        char* tmp = alloc.allocate(step * count + 1);
+
+        for (size_t i = 0; i < count; i++) {
+            // GOOD: No bookkeeping
+            memcpy(tmp + i * step, pattern.data(), step);
+        }
+
+        return std::string(std::storage_node(
+            tmp, size * count, size * count + 1, 0 /* offset */, alloc));
+    }
+    </xmp>
+
+    If using a `Rep`-style implementation, the mismatch in offsets requires an
+    O(N) move to shift the contents into place and trigger a possible
+    reallocation.
+
+## R0 &rarr; R1 ## {#R1}
+
+Applied feedback from LEWG [[post-Rapperswil]] Email Review:
+
+*   Shifted to a new vocabulary types: `storage_buffer` / `storage_node`
+
+    *   Added presentation of `storage_buffer` as a new container type
+    *   Added presentation of `storage_node` as a node-like type
+
+*   Added discussion of design and implementation considerations.
+
+*   Most of [[P1010R1]] Was merged into this paper.
+
+<pre class=biblio>
+{
+    "Abseil": {
+        "href": "https://github.com/abseil/abseil-cpp",
+        "date": "2018-09-22",
+        "title": "Abseil"
+    },
+    "LEWGI San Diego": {
+        "href": "http://wiki.edg.com/bin/view/Wg21sandiego2018/P1072",
+	"date": "2018-11-07"
+    },
+    "post-Rapperswil": {
+        "href": "http://lists.isocpp.org/lib-ext/2018/08/8299.php",
+        "date": "2018-08-26",
+        "title": "LEWG Weekly - P1072"
+    },
+    "N4734": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/n4734.pdf",
+        "date": "2018-04-04",
+        "title": "Working Draft, C++ Extensions for Networking"
+    },
+    "N4762": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/n4762.pdf",
+        "date": "2018-07-07",
+        "title": "Working Draft, Standard for Programming Language C++"
+    },
+    "P0083R3": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0083r3.pdf",
+        "date": "2016-06-24",
+        "title": "Splicing Maps and Sets"
+    },
+    "P0593R2": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0593r2.html",
+        "date": "2018-02-11",
+        "title": "Implicit creation of objects for low-level object manipulation"
+    },
+    "P1010R1": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1010r1.html",
+        "date": "2018-10-08",
+        "title": "Container support for implicit lifetime types. "
+    },
+    "P1020R0": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1020r0.html",
+        "date": "2018-04-08",
+        "title": "Smart pointer creation with default initialization"
+    },
+    "P1072R0": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1072r0.html",
+        "date": "2018-05-04",
+        "title": "Default Initialization for basic_string"
+    },
+    "P1072R1": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1072r1.html",
+        "date": "2018-10-07",
+        "title": "Optimized Initialization for basic_string and vector"
+    },
+    "P1144R0": {
+        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1144r0.html",
+        "date": "2018-10-04",
+        "title": "Object relocation in terms of move plus destroy"
+    },
+    "Protobuf": {
+        "href": "https://github.com/protocolbuffers/protobuf",
+        "date": "2018-09-22",
+        "title": "Protocol Buffers"
+    },
+    "Snappy": {
+        "href": "https://github.com/google/snappy",
+        "date": "2018-09-21",
+        "title": "Snappy"
+    }
+}
+</pre>
