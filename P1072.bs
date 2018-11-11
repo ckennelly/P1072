@@ -114,6 +114,7 @@ the data is done simultaneously with the computation of the *contents*.
 <xmp>
 extern "C" {
   int compress(void* out, size_t* out_size, const void* in, size_t in_size);
+  size_t compressBound(size_t bound);
 }
 
 std::string CompressWrapper(std::string_view input) {
@@ -139,6 +140,7 @@ With the proposed `resize_uninitialized`:
 <xmp>
 extern "C" {
   int compress(void* out, size_t* out_size, const void* in, size_t in_size);
+  size_t compressBound(size_t bound);
 }
 
 std::string CompressWrapper(std::string_view input) {
