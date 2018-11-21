@@ -18,37 +18,42 @@ Default Highlight: C++
 
 # Motivation # {#mot}
 
-`basic_string` provides an invariant that the objects it controls are always
-value, direct, move, or copy initialized. It turns out that there are other
-ways that we might want to create objects.
-
 Performance sensitive code is impacted by the cost of initializing and
-manipulating strings:  When streaming data into a `basic_string`, a programmer
-is forced with an unhappy choice:
+manipulating strings: When streaming data into a `basic_string`, a
+programmer is forced with an unhappy choice:
 
-*   Pay for extra initialization (`resize` then copy directly in)
-*   Pay for extra copies (populate a temporary buffer, copy it to the final destination)
-*   Pay for extra "bookkeeping" (`reserve` followed by small appends)
+* **Pay for extra initialization** &mdash; `resize`, which zero
+    initializes, followed by copy.
 
-C++'s hallmark is to write efficient code by construction and this proposal
-seeks to enable that.
+* **Pay for extra copies** &mdash; Populate a temporary buffer, copy
+    it to the string.
 
-Sometimes, it is useful to manipulate strings without paying for the
-bookkeeping overhead of null termination or SBO.  This paper proposes a
-mechanism to access `basic_string`'s buffer without value initializing its
-contents.
+* **Pay for extra "bookkeeping"** &mdash; `reserve` followed by small
+    appends, each of which checks capacity and null terminates.
+
+The effects of these unhappy choices can all be measured at scale.
+C++'s hallmark is to leave no room between the language (or in this
+case the library) and another language. This proposal closes that gap
+for `basic_string` by creating a mechanism to access `basic_string`'s
+buffer without value initializing its contents.
 
 LEWGI polled on this at the [[SAN]] Meeting:
 
-	We should promise more commitee time to [[P1072R1]], knowing that our time is
-	scarce and this will leave less time for other work?  *Unanimous consent*
+<blockquote>
+We should promise more commitee time to [[P1072R1]], knowing that our
+time is scarce and this will leave less time for other work?
+<br/>*Unanimous consent*
+</blockquote>
 
-When polled at the [[SAN]] Meeting, LEWG wanted to solve this problem:
+LEWG at the [[SAN]] Meeting:
 
-<table class="def">
-<tr><th>**SF**</th><th>**F**</th><th>**N**</th><th>**A**</th><th>**SA**</th></tr>
-<th>17</th><th>5</th><th>0</th><th>0</th><th>0</th></tr>
+<blockquote>
+We want to solve this problem
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>17</td><td>5</td><td>0</td><td>0</td><td>0</td></tr>
 </table>
+</blockquote>
 
 ## Stamping a Pattern ## {#pattern}
 
@@ -188,10 +193,13 @@ During the [[SAN]] Meeting, LEWG expressed a preference for implementing
 this as a method on `basic_string` (as proposed in [[P1072R0]]) rather than a
 standalone type:
 
-<table class="def">
-<tr><th>**Strong Method**</th><th>**Method**</th><th>**Neutral**</th><th>**Type**</th><th>**Strong Type**</th></tr>
-<th>9</th><th>2</th><th>3</th><th>2</th><th>2</th></tr>
+<blockquote>
+Method on string vs storage_buffer type:
+<table>
+<tr><th>Strong Method</th><th>Method</th><th>Neutral</th><th>Type</th><th>Strong Type</th></tr>
+<td>9</td><td>2</td><td>3</td><td>2</td><td>2</td></tr>
 </table>
+</blockquote>
 
 String has two key invariants discussed in the [[post-Rapperswil]] review:
 *   We keep the null terminator invariant of `basic_string` unchanged.
