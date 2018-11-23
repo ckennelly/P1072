@@ -189,9 +189,11 @@ The "null terminator" invariant of `basic_string` [24.3.2] is unchanged.
 
 ## Design Considerations ## {#design}
 
+### Method vs. Standalone "Buffer" Type
+
 During the [[SAN]] Meeting, LEWG expressed a preference for implementing
-this as a method on `basic_string` (as proposed in [[P1072R0]]) rather than a
-standalone type:
+this as a new method on `basic_string` (as proposed in [[P1072R0]]) rather than a
+standalone "storage buffer" type:
 
 <blockquote>
 Method on string vs storage_buffer type:
@@ -201,24 +203,21 @@ Method on string vs storage_buffer type:
 </table>
 </blockquote>
 
-String has two key invariants discussed in the [[post-Rapperswil]] review:
-*   We keep the null terminator invariant of `basic_string` unchanged.
-*   We allow for the possibility of inserting uninitialized data into a string.
-    This is **already** possible with existing APIs:
 
-    <xmp>
-    std::string bad() {
-      std::string ret;
-      char buf[16];  // buf is uninitialized
-      ret.append(buf, sizeof(buf));
-      return ret;
-    }
-    </xmp>
+### Tag type vs. Method Name
+
+TODO
 
 
-For interacting with sanitizers:
-*   Access to `[0, size()]` continues to be constrained
-*   The accuracy initialization state of the contents `[0, size())` is unaffected:  After using `resize_uninitialized`, the data will be uninitialized for Memory Sanitizer/Valgrind.  (`string[size()]` continues to be specified as the null terminator.)
+### Analysis Tools
+
+Analysis tools which base their analysis on the `size()` of the string
+will be weakend by this proposal.
+
+Dynamic analysis tools which track uninitialized state of memory, such
+as Valgrind and Memory Sanitizer (TODO add references) will be abel to
+diagnose reads from uninitialized elements of the string.
+
 
 ## Bikeshedding ## {#bikeshed}
 
