@@ -55,7 +55,16 @@ We want to solve this problem
 </table>
 </blockquote>
 
-## Stamping a Pattern ## {#pattern}
+## Allocator Interaction ## {#interact}
+
+Allocator aware containers always value, direct, move, or copy
+initialize the objects that they control via `allocator_traits`. This
+proposal changes the rules for `basic_string` (only), allowing
+`basic_string<CharT, Traits, Allocator>` to control all initialization
+when `Allocator` does not provide `construct` or `destroy` for
+`CharT`.
+
+## Example: Stamping a Pattern ## {#pattern}
 
 Consider writing a pattern several times into a string:
 <xmp>
@@ -110,7 +119,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 }
 </xmp>
 
-## Interacting with C ## {#c}
+## Example: Interacting with C ## {#c}
 
 Consider wrapping a C API while working in terms of C++'s `basic_string`
 vocabulary.  We *anticipate* overallocating, as computation of the *length* of

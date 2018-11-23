@@ -1,0 +1,222 @@
+<pre class='metadata'>
+Title: Allocator Notes for basic_string::resize_default_init
+Status: D
+Shortname: P9999
+Group: WG21
+Revision: 0
+Editor: Chris Kennelly, Google, ckennelly@google.com
+Editor: Mark Zeren, VMware, mzeren@vmware.com
+Date: 2018-11-08
+Audience: LEWG
+Audience: LWG
+Abstract: Notes on allocator interaction required for basic_string::resize_default_init
+URL: http://wg21.link/D9999
+Markup Shorthands: markdown yes
+Default Highlight: C++
+</pre>
+
+
+# Proposal (WIP)
+
+We can change p3:
+
+[[container.requirements.general](
+http://eel.is/c++draft/container.requirements.general#3)]
+
+<blockquote>
+
+For <del> the components affected by this subclause that declare an
+allocator_type</del> <ins>all of the containers defined in this Clause
+and in 28.10 except `array`</ins>, objects stored in these
+&nbsp;<del>components </del> <ins>containers</ins> shall be
+constructed using the function
+`allocator_traits<allocator_type>::rebind_traits<U>::construct` and
+destroyed using the function
+`allocator_traits<allocator_type>::rebind_traits<U>::destroy`
+(19.10.9.2),
+
+</blockquote>
+
+We can also make p15 more precise:
+
+[[container.requirements.general](
+http://eel.is/c++draft/container.requirements.general#15)] p15 says:
+
+<blockquote>
+
+All of the containers defined in this Clause <del>and</del>
+&nbsp;<ins>,</ins> in 20.3.2 <ins>, and in 28.10</ins> except `array`
+meet the additional requirements of an allocator-aware container, as
+described in Table 67.
+
+</blockquote>
+
+Note that Table 67 says that `allocator_traits<A>::construct` and
+`allocator_traits<A>::destroy` are "well formed". This holds even if
+we don't actually *call* those functions. We can clarify that
+varriance for `basic_string` in a Note below p15.6:
+
+<blockquote>
+
+[ Note: A container calls `allocator_traits<A>::construct(m, p, args)`
+to construct an element at p using args, with `m` ==
+`get_allocator()`. The default construct in allocator will call
+`::new((void*)p) T(args)`, but specialized allocators may choose a
+different definition. — end note ]
+
+<ins>
+[ Note: Some instantiations of `basic_string`, including
+`std::string`, do not call `construct` or `destroy`. See TODO. ]
+</ins>
+
+</blockquote>
+
+
+# `string` v. `allocator`
+
+(Thanks to Jonathan Wakely for tracking this down.)
+
+20.1 [strings.general] p1 defines char-like type:
+
+[[strings.general](http://eel.is/c++draft/strings.general#1)] p1
+
+<blockquote>
+
+This Clause describes components for manipulating sequences of any
+non-array trivial standard-layout (6.7) type. Such types are called
+*char-like types*, and objects of *char-like types* are *called
+char-like objects* or simply *characters*.
+
+</blockquote>
+
+Then hidden away in 20.3.2 [[basic.string](
+http://eel.is/c++draft/basic.string#1)] p1 it says:
+
+<blockquote>
+
+A `basic_string` is a contiguous container (21.2.1).
+
+</blockquote>
+
+That cross-reference goes to 21.2.1 [[container.requirements.general](
+http://eel.is/c++draft/container.requirements.general#3)] where p3
+says:
+
+<blockquote>
+
+For the components affected by this subclause that declare an
+allocator_type, objects stored in these components shall be
+constructed using the function
+`allocator_traits<allocator_type>::rebind_traits<U>::construct` and
+destroyed using the function
+`allocator_traits<allocator_type>::rebind_traits<U>::destroy`
+(19.10.9.2),
+
+</blockquote>
+
+Wakely: ""affected by this subclause"?!? what does that mean?! I am
+not sure if that includes basic_string or not."
+
+Zeren: It looks like the mystery other "component" is `match_results`:
+
+[[http://eel.is/c++draft/re.results](
+http://eel.is/c++draft/re.results#2)] p2:
+
+<blockquote>
+
+The class template `match_results` satisfies the requirements of an
+allocator-aware container and of a sequence container
+([container.requirements.general], [sequence.reqmts]) except that only
+operations defined for const-qualified sequence containers are
+supported and that the semantics of comparison functions are different
+from those required for a container.
+
+</blockquote>
+
+And looking at libc++, `match_results` is implemented in terms of
+`vector<foo, Allocator>`.
+
+... meanwhile, back to `basic_string` ...
+[[container.requirements.general](
+http://eel.is/c++draft/container.requirements.general#15)] p15 says:
+
+<blockquote>
+
+All of the containers defined in this Clause and in 20.3.2 except
+`array` meet the additional requirements of an allocator-aware
+container, as described in Table 67.
+
+</blockquote>
+
+which is at least clear and unambiguous.
+
+If the two "alien" "components" are `basic_string` and `match_results`
+I think they can be exempted from p3's " objects ... shall be
+constructed ..." and " ... shall be destroyed ..." requirements.
+
+
+# `polymorphic_allocator` # {#poly}
+
+`polymorphic_allocator` and therefore `pmr::string` will not provide
+`resize_default_init` unless we fix pmr `construct` to SFINAE-away (or
+Concept-away) for `uses_allocator_v<T,Alloc> == false`.
+
+* [[mem.poly.allocator.class#mem.poly.allocator.mem p5](
+  http://eel.is/c++draft/mem.poly.allocator.class#mem.poly.allocator.mem-5)]
+
+* [[allocator.uses.construction p1.1](
+  http://eel.is/c++draft/allocator.uses.construction#1.1)]
+
+Is there (should there be) a Concept for `uses_allocator_v`?
+
+We should remove `destroy` in C++20:
+
+* [[mem.poly.allocator.mem p15](
+  http://eel.is/c++draft/mem.poly.allocator.class#mem.poly.allocator.mem-15)]
+
+# Cleaning up `std::allocator` References
+
+In C++20 `std::allocator` no longer has `construct`.
+
+[[container.requirements.general](
+http://eel.is/c++draft/container.requirements.general#15.6)] p15.6
+
+<blockquote>
+
+[ Note: A container calls `allocator_traits<A>::construct(m, p, args)`
+to construct an element at p using args, with `m` ==
+`get_allocator()`. The default `construct` in <del>`allocator`</del>
+<ins>`allocator_traits`</ins> will call `::new((void*)p) T(args)`, but
+<del>specialized allocators</del> <ins>allocators that define
+`construct`</ins> may choose a different definition. — end note ]
+
+</blockquote>
+
+[[container.requirements.general](
+http://eel.is/c++draft/container.requirements.general#15) p15
+
+Do we really allow user specializations of `std::allocator`?
+
+<blockquote>
+
+... If X is not allocator-aware, the terms below are defined as if `A`
+were `allocator<T>` — no allocator object needs to be created <del>and
+user specializations of allocator<T> are not instantiated</del>:
+
+</blockquote>
+
+?
+
+# Associative Containers # {#map}
+
+The associative containers modify Table 67 to apply to `key_type` and
+`mapped_type` instead of `value_type`:
+
+* [[associative.reqmts](
+  http://eel.is/c++draft/associative.reqmts#7)] p7.
+
+* [[unord.req](http://eel.is/c++draft/unord.req#10)] p10.
+
+Maybe `basic_string` can modify the table? Or does it need to have a
+new table? or remove references to the table?
+
