@@ -1,5 +1,5 @@
 <pre class='metadata'>
-Title: Optimized Initialization for basic_string
+Title: basic_string::resize_default_init
 Status: P
 Shortname: P1072
 Group: WG21
@@ -10,7 +10,7 @@ Date: 2018-11-08
 Audience: LEWG
 Audience: LWG
 Audience: SG16
-Abstract: Allow access to uninitialized or default initialized elements when working with basic_string
+Abstract: Allow access to default initialized elements of basic_string.
 URL: http://wg21.link/P1072R2
 Markup Shorthands: markdown yes
 Default Highlight: C++
@@ -33,9 +33,7 @@ programmer is forced with an unhappy choice:
 
 The effects of these unhappy choices can all be measured at scale.
 C++'s hallmark is to leave no room between the language (or in this
-case the library) and another language. This proposal closes that gap
-for `basic_string` by creating a mechanism to access `basic_string`'s
-buffer without value initializing its contents.
+case the library) and another language.
 
 LEWGI polled on this at the [[SAN]] Meeting:
 
@@ -54,6 +52,9 @@ We want to solve this problem
 <tr><td>17</td><td>5</td><td>0</td><td>0</td><td>0</td></tr>
 </table>
 </blockquote>
+
+This proposal addresses the problem by adding
+`basic_string::resize_default_init`.
 
 ## Example: Stamping a Pattern ## {#pattern}
 
@@ -92,7 +93,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 }
 </xmp>
 
-We propose `basic_string::resize_default_init` to avoid this tradeoff.
+Wit this proposal:
 
 <xmp>
 std::string GeneratePattern(const std::string& pattern, size_t count) {
@@ -140,7 +141,7 @@ std::string CompressWrapper(std::string_view input) {
 }
 </xmp>
 
-With the proposed `resize_default_init`:
+With this propsoal:
 
 <xmp>
 extern "C" {
@@ -194,8 +195,8 @@ In [**basic.string**] [20.3.2], in the synopsis, add
 </blockquote>
 
 In [**string.require**] [20.3.2.1] clarify that `basic_string` is an
-allocator-aware container with an exception for `construct` and
-`destroy`.
+allocator-aware container, and then add an exception for `construct`
+and `destroy`.
 
 <blockquote>
 
@@ -223,7 +224,7 @@ allocator-aware container with an exception for `construct` and
 
 5. References, pointers, and iterators referring to the elements of a
   `basic_string` sequence may be invalidated by the following uses of
-  that `basic_string` object:
+  that `basic_string` object:<br/>...
 
 </blockquote>
 
