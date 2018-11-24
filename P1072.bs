@@ -18,39 +18,53 @@ Default Highlight: C++
 
 # Motivation # {#mot}
 
-`basic_string` provides an invariant that the objects it controls are always
-value, direct, move, or copy initialized. It turns out that there are other
-ways that we might want to create objects.
-
 Performance sensitive code is impacted by the cost of initializing and
-manipulating strings:  When streaming data into a `basic_string`, a programmer
-is forced with an unhappy choice:
+manipulating strings: When streaming data into a `basic_string`, a
+programmer is forced with an unhappy choice:
 
-*   Pay for extra initialization (`resize` then copy directly in)
-*   Pay for extra copies (populate a temporary buffer, copy it to the final destination)
-*   Pay for extra "bookkeeping" (`reserve` followed by small appends)
+* **Pay for extra initialization** &mdash; `resize`, which zero
+    initializes, followed by copy.
 
-C++'s hallmark is to write efficient code by construction and this proposal
-seeks to enable that.
+* **Pay for extra copies** &mdash; Populate a temporary buffer, copy
+    it to the string.
 
-Sometimes, it is useful to manipulate strings without paying for the
-bookkeeping overhead of null termination or SBO.  This paper proposes a
-mechanism to access `basic_string`'s buffer without value initializing its
-contents.
+* **Pay for extra "bookkeeping"** &mdash; `reserve` followed by small
+    appends, each of which checks capacity and null terminates.
+
+The effects of these unhappy choices can all be measured at scale.
+C++'s hallmark is to leave no room between the language (or in this
+case the library) and another language. This proposal closes that gap
+for `basic_string` by creating a mechanism to access `basic_string`'s
+buffer without value initializing its contents.
 
 LEWGI polled on this at the [[SAN]] Meeting:
 
-	We should promise more commitee time to [[P1072R1]], knowing that our time is
-	scarce and this will leave less time for other work?  *Unanimous consent*
+<blockquote>
+We should promise more commitee time to [[P1072R1]], knowing that our
+time is scarce and this will leave less time for other work?
+<br/>*Unanimous consent*
+</blockquote>
 
-When polled at the [[SAN]] Meeting, LEWG wanted to solve this problem:
+LEWG at the [[SAN]] Meeting:
 
-<table class="def">
-<tr><th>**SF**</th><th>**F**</th><th>**N**</th><th>**A**</th><th>**SA**</th></tr>
-<th>17</th><th>5</th><th>0</th><th>0</th><th>0</th></tr>
+<blockquote>
+We want to solve this problem
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>17</td><td>5</td><td>0</td><td>0</td><td>0</td></tr>
 </table>
+</blockquote>
 
-## Stamping a Pattern ## {#pattern}
+## Allocator Interaction ## {#interact}
+
+Allocator aware containers always value, direct, move, or copy
+initialize the objects that they control via `allocator_traits`. This
+proposal changes the rules for `basic_string` (only), allowing
+`basic_string<CharT, Traits, Allocator>` to control all initialization
+when `Allocator` does not provide `construct` or `destroy` for
+`CharT`.
+
+## Example: Stamping a Pattern ## {#pattern}
 
 Consider writing a pattern several times into a string:
 <xmp>
@@ -105,7 +119,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 }
 </xmp>
 
-## Interacting with C ## {#c}
+## Example: Interacting with C ## {#c}
 
 Consider wrapping a C API while working in terms of C++'s `basic_string`
 vocabulary.  We *anticipate* overallocating, as computation of the *length* of
@@ -114,6 +128,7 @@ the data is done simultaneously with the computation of the *contents*.
 <xmp>
 extern "C" {
   int compress(void* out, size_t* out_size, const void* in, size_t in_size);
+  size_t compressBound(size_t bound);
 }
 
 std::string CompressWrapper(std::string_view input) {
@@ -139,6 +154,7 @@ With the proposed `resize_uninitialized`:
 <xmp>
 extern "C" {
   int compress(void* out, size_t* out_size, const void* in, size_t in_size);
+  size_t compressBound(size_t bound);
 }
 
 std::string CompressWrapper(std::string_view input) {
@@ -182,33 +198,35 @@ The "null terminator" invariant of `basic_string` [24.3.2] is unchanged.
 
 ## Design Considerations ## {#design}
 
+### Method vs. Standalone "Buffer" Type
+
 During the [[SAN]] Meeting, LEWG expressed a preference for implementing
-this as a method on `basic_string` (as proposed in [[P1072R0]]) rather than a
-standalone type:
+this as a new method on `basic_string` (as proposed in [[P1072R0]]) rather than a
+standalone "storage buffer" type:
 
-<table class="def">
-<tr><th>**Strong Method**</th><th>**Method**</th><th>**Neutral**</th><th>**Type**</th><th>**Strong Type**</th></tr>
-<th>9</th><th>2</th><th>3</th><th>2</th><th>2</th></tr>
+<blockquote>
+Method on string vs storage_buffer type:
+<table>
+<tr><th>Strong Method</th><th>Method</th><th>Neutral</th><th>Type</th><th>Strong Type</th></tr>
+<td>9</td><td>2</td><td>3</td><td>2</td><td>2</td></tr>
 </table>
-
-String has two key invariants discussed in the [[post-Rapperswil]] review:
-*   We keep the null terminator invariant of `basic_string` unchanged.
-*   We allow for the possibility of inserting uninitialized data into a string.
-    This is **already** possible with existing APIs:
-
-    <xmp>
-    std::string bad() {
-      std::string ret;
-      char buf[16];  // buf is uninitialized
-      ret.append(buf, sizeof(buf));
-      return ret;
-    }
-    </xmp>
+</blockquote>
 
 
-For interacting with sanitizers:
-*   Access to `[0, size()]` continues to be constrained
-*   The accuracy initialization state of the contents `[0, size())` is unaffected:  After using `resize_uninitialized`, the data will be uninitialized for Memory Sanitizer/Valgrind.  (`string[size()]` continues to be specified as the null terminator.)
+### Tag type vs. Method Name
+
+TODO
+
+
+### Analysis Tools
+
+Analysis tools which base their analysis on the `size()` of the string
+will be weakend by this proposal.
+
+Dynamic analysis tools which track uninitialized state of memory, such
+as Valgrind and Memory Sanitizer (TODO add references) will be abel to
+diagnose reads from uninitialized elements of the string.
+
 
 ## Bikeshedding ## {#bikeshed}
 
