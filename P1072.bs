@@ -335,9 +335,24 @@ We can then simplify p15:
 
 ## Method vs. Alternatives
 
-During the [[SAN]] Meeting, LEWG expressed a preference for implementing
-this as a new method on `basic_string` (as proposed in [[P1072R0]]) rather than a
-standalone "storage buffer" type:
+`resize_default_init` would exposes users to UB if they read
+indeterminate ([**dcl.init**] p12 (9.3.12)) values in the string.
+Despite this, this approach is appealing because:
+
+* It is simple.
+
+* It matches existing practice. See [[#related]].
+
+* Uninitialized buffers are not uncommon in C++. See for example `new
+  T[20]` or the recently adopted `make_unique_default_init`.
+
+* Dynamic analyzers like Memory Sanitizer [[MSan]] and Valgrind
+  [[Valgrind]] can catch uninitialized reads.
+
+During the [[SAN]] Meeting LEWG expressed a preference for
+implementing this functionality as a new method on `basic_string` (as
+proposed in [[P1072R0]]) rather than a standalone "storage buffer"
+type (one option in [[P1072R1]]):
 
 <blockquote>
 Method on string vs storage_buffer type:
@@ -422,16 +437,6 @@ Along the way, this proposal clarifies ambigous language in
   containers (just `basic_string` and `regex::match_results`?) can
   independently state that they are "allocator-aware" in their own
   clauses.
-
-
-## Analysis Tools
-
-Analysis tools which base their analysis on the `size()` of the string
-will be weakend by this proposal.
-
-Dynamic analysis tools which track uninitialized state of memory, such
-as Valgrind and Memory Sanitizer (TODO add references) will be able to
-diagnose reads from uninitialized elements of the string.
 
 
 ## Bikeshedding ## {#bikeshed}
@@ -781,6 +786,14 @@ Applied feedback from LEWG [[post-Rapperswil]] Email Review:
         "href": "https://github.com/google/snappy",
         "date": "2018-09-21",
         "title": "Snappy"
+    },
+    "MSan": {
+        "href": "https://clang.llvm.org/docs/MemorySanitizer.html",
+        "title": "Memory Sanitizer"
+    },
+    "Valgrind": {
+        "http://www.valgrind.org",
+        "title": "Valgrind"
     }
 }
 </pre>
