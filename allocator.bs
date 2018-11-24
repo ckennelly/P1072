@@ -18,58 +18,81 @@ Default Highlight: C++
 
 # Proposal (WIP)
 
-We can change p3:
+## [string.require]
 
-[[container.requirements.general](
-http://eel.is/c++draft/container.requirements.general#3)]
+In `basic_string` General Requirements [[string.require](
+http://eel.is/c++draft/string.classes#string.require-3)] clarify that
+`basic_string` is an allocator-aware container, modulo an exception
+for `construct` and `destroy`.
 
 <blockquote>
 
-For <del> the components affected by this subclause that declare an
-allocator_type</del> <ins>all of the containers defined in this Clause
-and in 28.10 except `array`</ins>, objects stored in these
-&nbsp;<del>components </del> <ins>containers</ins> shall be
-constructed using the function
-`allocator_traits<allocator_type>::rebind_traits<U>::construct` and
-destroyed using the function
-`allocator_traits<allocator_type>::rebind_traits<U>::destroy`
-(19.10.9.2),
+3. In every specialization `basic_string<charT, traits, Allocator>`,
+  the type `allocator_traits<Allocator>::value_type` shall name the
+  same type as `charT` <del>. Every object of type
+  `basic_string<charT, traits, Allocator>` shall use an object of type
+  `Allocator` to allocate and free storage for the contained `charT`
+  objects as needed. The Allocator object used shall be obtained as
+  described in [container.requirements.general]. In every
+  specialization `basic_string<charT, traits, Allocator>`</del>, <ins>
+  and</ins> the type `traits` shall satisfy the character traits
+  requirements ([char.traits]), and the type `traits::char_type` shall
+  name the same type as `charT`.
+
+<ins>
+
+4. `basic_string` is an allocator-aware container as described in
+  [container.requirements.general], except that `basic_string`
+  directly constructs and destroys elements of the sequence and does
+  not call `allocator_traits::construct` or
+  `allocator_traits::destroy`.
+
+</ins>
+
+5. References, pointers, and iterators referring to the elements of a
+  `basic_string` sequence may be invalidated by the following uses of
+  that `basic_string` object:
 
 </blockquote>
 
-We can also make p15 more precise:
+## [container.requirements.general]
 
-[[container.requirements.general](
-http://eel.is/c++draft/container.requirements.general#15)] p15 says:
+In [[container.requirements.general](
+http://eel.is/c++draft/container.requirements.general#3)] clarify the
+ambigous "components affected by this subclause" wording in p3, and
+instead just say "allocator-aware containers".
 
 <blockquote>
 
-All of the containers defined in this Clause <del>and</del>
-&nbsp;<ins>,</ins> in 20.3.2 <ins>, and in 28.10</ins> except `array`
-meet the additional requirements of an allocator-aware container, as
-described in Table 67.
+3.<ins>All of the containers defined in this Clause except `array` are
+  allocator-aware containers.</ins> <del> For the components affected by
+  this subclause that declare an allocator_type</del> <ins>All</ins>,
+  objects stored in <del> these components </del> <ins>
+  allocator-aware containers, except as noted, </ins> shall be
+  constructed using the function
+  `allocator_traits<allocator_type>::rebind_traits<U>::construct` and
+  destroyed using the function
+  `allocator_traits<allocator_type>::rebind_traits<U>::destroy`
+  (19.10.9.2),
+
+</blockquote>
+
+We can then simplify [[container.requirements.general](
+http://eel.is/c++draft/container.requirements.general#15)] p15:
+
+
+<blockquote>
+
+<del>All of the containers defined in this Clause and in 20.3.2 except
+`array` meet the additional requirements of an allocator-aware
+container, as</del> <ins> Allocator-aware containers meet the
+additional requirements described in Table 67.
 
 </blockquote>
 
 Note that Table 67 says that `allocator_traits<A>::construct` and
 `allocator_traits<A>::destroy` are "well formed". This holds even if
-we don't actually *call* those functions. We can clarify that
-varriance for `basic_string` in a Note below p15.6:
-
-<blockquote>
-
-[ Note: A container calls `allocator_traits<A>::construct(m, p, args)`
-to construct an element at p using args, with `m` ==
-`get_allocator()`. The default construct in allocator will call
-`::new((void*)p) T(args)`, but specialized allocators may choose a
-different definition. — end note ]
-
-<ins>
-[ Note: Some instantiations of `basic_string`, including
-`std::string`, do not call `construct` or `destroy`. See TODO. ]
-</ins>
-
-</blockquote>
+we don't actually *call* those functions.
 
 
 # `string` v. `allocator`

@@ -57,12 +57,42 @@ We want to solve this problem
 
 ## Allocator Interaction ## {#interact}
 
-Allocator aware containers always value, direct, move, or copy
-initialize the objects that they control via `allocator_traits`. This
-proposal changes the rules for `basic_string` (only), allowing
-`basic_string<CharT, Traits, Allocator>` to control all initialization
-when `Allocator` does not provide `construct` or `destroy` for
-`CharT`.
+Unlocking the desired optimizations requires *some* change to
+`basic_string`'s interaction with allocators. This proposal does what
+we think is the simplest possible change: remove the requirement that
+`basic_string` call `allocator_traits::construct` or
+`allocator_traits::destroy`.
+
+This restriction should be acceptable because `basic_string` is
+defined to only hold "non-array trivial standard-layout" types.
+[[strings.general](http://eel.is/c++draft/strings.general#1)] p1:
+
+<blockquote>
+
+This Clause describes components for manipulating sequences of any
+non-array trivial standard-layout (6.7) type. Such types are called
+*char-like types*, and objects of *char-like types* are *called
+char-like objects* or simply *characters*.
+
+</blockquote>
+
+Removing calls to `construct` and `destroy` is compatible with
+`pmr::basic_string` as long as `uses_allocator_v<charT>` is `false`,
+which should be the case in practice.
+
+Along the way, this proposal clarifies ambigous language in
+[**string.require**] and [**container.requirements.general**] by:
+
+* Stating explicitly that `basic_string` is allocator-aware.
+
+* Introducing the term "allocator-aware" earlier in
+  [**container.requirements.general**].
+
+* Not attempting to mention other "components" in
+  [**container.requirements.general**]. The other allocator aware
+  containers (just `basic_string` and `regex::match_results`?) can
+  independently state that they are "allocator-aware" in their own
+  clauses.
 
 ## Example: Stamping a Pattern ## {#pattern}
 
@@ -101,7 +131,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 }
 </xmp>
 
-We propose `basic_string::resize_uninitialized` to avoid this tradeoff.
+We propose `basic_string::resize_default_init` to avoid this tradeoff.
 
 <xmp>
 std::string GeneratePattern(const std::string& pattern, size_t count) {
@@ -109,7 +139,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 
    const auto step = pattern.size();
    // GOOD:  No initialization
-   ret.resize_uninitialized(step * count);
+   ret.resize_default_init(step * count);
    for (size_t i = 0; i < count; i++) {
      // GOOD: No bookkeeping
      memcpy(ret.data() + i * step, pattern.data(), step);
@@ -149,7 +179,7 @@ std::string CompressWrapper(std::string_view input) {
 }
 </xmp>
 
-With the proposed `resize_uninitialized`:
+With the proposed `resize_default_init`:
 
 <xmp>
 extern "C" {
@@ -163,7 +193,7 @@ std::string CompressWrapper(std::string_view input) {
     size_t size = compressBound(input.size());
 
     // GOOD:  No initialization
-    compressed.resize_uninitialized(size);
+    compressed.resize_default_init(size);
     int ret = compress(compressed.begin(), &size, input.data(), input.size());
     if (ret != OK) {
       throw ...some error...
@@ -179,22 +209,165 @@ std::string CompressWrapper(std::string_view input) {
 
 Wording relative to [[N4778]]
 
-Add to basic.string.capacity [24.3.2.4]:
+# [<strong>basic.string</strong>] # {#basic.string}
+
+In [**basic.string**] [20.3.2], in the synopsis, add
+`resize_default_init`:
+
+<blockquote>
+<pre highlight="">
+...
+    // <em>23.3.2.4</em>, capacity
+    size_type size() const noexcept;
+    size_type length() const noexcept;
+    size_type max_size() const noexcept;
+    void resize(size_type n, charT c);
+    void resize(size_type n);
+    <ins>void resize_default_init(size_type n);</ins>
+    size_type capacity() const noexcept;
+    void reserve(size_type res_arg);
+    void shrink_to_fit();
+    void clear() noexcept;
+    [[nodiscard]] bool empty() const noexcept;
+</pre>
+</blockquote>
+
+In [**string.require**] [20.3.2.1] clarify that `basic_string` is an
+allocator-aware container with an exception for `construct` and
+`destroy`.
+
+<blockquote>
+
+3. In every specialization `basic_string<charT, traits, Allocator>`,
+  the type `allocator_traits<Allocator>::value_type` shall name the
+  same type as `charT` <del>. Every object of type
+  `basic_string<charT, traits, Allocator>` shall use an object of type
+  `Allocator` to allocate and free storage for the contained `charT`
+  objects as needed. The Allocator object used shall be obtained as
+  described in [container.requirements.general]. In every
+  specialization `basic_string<charT, traits, Allocator>`</del>, <ins>
+  and</ins> the type `traits` shall satisfy the character traits
+  requirements ([char.traits]), and the type `traits::char_type` shall
+  name the same type as `charT`.
 
 <ins>
-<xmp>
-void resize_uninitialized(size_type n);
-</xmp>
 
-*   *Throws*: `length_error` if `n > max_size()`
-*   *Effects*:  Alters the length of the string designated by `*this` as follows:
-
-    *   If `n <= size()`, calls `resize(n)`
-    *   If `n > size()`, the function replaces the string designated by `*this` with a string of length `n` whose first `size()` elements are a copy of the original string designated by `*this`, and whose remaining elements are default initialized.
+4. `basic_string` is an allocator-aware container as described in
+  [container.requirements.general], except that `basic_string`
+  directly constructs and destroys elements of the sequence and does
+  not call `allocator_traits::construct` or
+  `allocator_traits::destroy`.
 
 </ins>
 
-The "null terminator" invariant of `basic_string` [24.3.2] is unchanged.
+5. References, pointers, and iterators referring to the elements of a
+  `basic_string` sequence may be invalidated by the following uses of
+  that `basic_string` object:
+
+</blockquote>
+
+In [**basic.string.capacity**] [20.3.2.4]:
+
+<blockquote>
+<pre highlight="">
+void resize(size_type n, charT c);
+</pre>
+
+<ol start="6">
+
+<li>*Throws:* `length_error` if `n > max_size()`.</li>
+
+<li>*Effects:* Alters the length of the string designated by `*this` as follows:
+<ol>
+
+<li>— If `n <= size()`, the function replaces the string designated by
+    `*this` with a string of length `n` whose elements are a copy of
+    the initial elements of the original string designated by
+    `*this`.</li>
+
+<li>— If `n > size()`, the function replaces the string designated by
+    `*this` with a string of length `n` whose first `size()` elements
+    are a copy of the original string designated by `*this`, and whose
+    remaining elements are all initialized to `c`.</li>
+
+</ol>
+</li>
+</ol>
+
+<pre highlight="">
+void resize(size_type n);
+</pre>
+<ol start="8">
+<li>*Effects:* As if by `resize(n, charT())`.</li>
+</ol>
+
+<ins>
+<pre highlight="">
+void resize_default_init(size_type n);
+</pre>
+
+<ol start="9">
+<li> *Throws*: `length_error` if `n > max_size()`.</li>
+
+<li>*Effects*:  Alters the length of the string designated by `*this` as follows:
+<ol>
+
+<li>If `n <= size()`, as if by `resize(n)`.</li>
+
+<li>If `n > size()`, the function replaces the string designated by
+    `*this` with a st ring of length `n` whose first `size()` elements
+    are a copy of the original string designated by `*this`, and whose
+    remaining elements are default initialized.</li>
+
+</ol>
+</li>
+</ol>
+
+</ins>
+</pre>
+
+<pre highlight="">
+size_type capacity() const noexcept;
+</pre>
+...
+</blockquote>
+
+# [<strong>container.requirements.general</strong>] # {#container}
+
+In [**container.requirements.general**] [21.2.1] clarify the ambigous
+"components affected by this subclause" terminology in p3. Just say
+"allocator-aware containers".
+
+<blockquote>
+<ol start="3">
+
+<li><ins>All of the containers defined in this Clause except `array` are
+    allocator-aware containers.</ins> <del> For the components
+    affected by this subclause that declare an allocator_type</del>
+    <ins>All</ins>, objects stored in <del> these components </del>
+    <ins> allocator-aware containers, except as noted, </ins> shall be
+    constructed using the function
+    `allocator_traits<allocator_type>::rebind_traits<U>::construct`
+    and destroyed using the function
+    `allocator_traits<allocator_type>::rebind_traits<U>::destroy`
+    (19.10.9.2). </li>
+
+</ol>
+</blockquote>
+
+We can then simplify p15:
+<blockquote>
+<ol start="15">
+
+<li><del>All of the containers defined in this Clause and in 20.3.2
+    except `array` meet the additional requirements of an
+    allocator-aware container, as</del> <ins> Allocator-aware
+    containers meet the additional requirements described in Table
+    67.</li>
+
+</ol>
+</blockquote>
+
 
 ## Design Considerations ## {#design}
 
@@ -232,8 +405,8 @@ diagnose reads from uninitialized elements of the string.
 
 What do we want to call this method?
 
-*   `resize_uninitialized` (as proposed)
-*   `resize_default_init` (for consistency with [[P1020R1]], adopted in San Diego Meeting)
+*   `resize_default_init` (as proposed). Consistent with [[P1020R1]], adopted in San Diego Meeting.
+*   `resize_uninitialized` (as proposed in R0)
 
 # Alternatives Considered # {#alternatives}
 
