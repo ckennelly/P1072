@@ -166,51 +166,11 @@ std::string CompressWrapper(std::string_view input) {
 }
 </xmp>
 
-# Allocator Interaction# {#allocator}
-
-Unlocking the desired optimizations requires *some* change to
-`basic_string`'s interaction with allocators. This proposal does what
-we think is the simplest possible change: remove the requirement that
-`basic_string` call `allocator_traits::construct` or
-`allocator_traits::destroy`.
-
-This restriction should be acceptable because `basic_string` is
-defined to only hold "non-array trivial standard-layout" types.
-[[strings.general](http://eel.is/c++draft/strings.general#1)] p1:
-
-<blockquote>
-
-This Clause describes components for manipulating sequences of any
-non-array trivial standard-layout (6.7) type. Such types are called
-*char-like types*, and objects of *char-like types* are *called
-char-like objects* or simply *characters*.
-
-</blockquote>
-
-Removing calls to `construct` and `destroy` is compatible with
-`pmr::basic_string` as long as `uses_allocator_v<charT>` is `false`,
-which should be the case in practice.
-
-Along the way, this proposal clarifies ambigous language in
-[**string.require**] and [**container.requirements.general**] by:
-
-* Stating explicitly that `basic_string` is allocator-aware.
-
-* Introducing the term "allocator-aware" earlier in
-  [**container.requirements.general**].
-
-* Not attempting to mention other "components" in
-  [**container.requirements.general**]. The other allocator aware
-  containers (just `basic_string` and `regex::match_results`?) can
-  independently state that they are "allocator-aware" in their own
-  clauses.
-
-
 # Proposal # {#prop}
 
 Wording relative to [[N4778]]
 
-# [<strong>basic.string</strong>] # {#basic.string}
+## [<strong>basic.string</strong>] ## {#basic.string}
 
 In [**basic.string**] [20.3.2], in the synopsis, add
 `resize_default_init`:
@@ -333,7 +293,7 @@ size_type capacity() const noexcept;
 ...
 </blockquote>
 
-# [<strong>container.requirements.general</strong>] # {#container}
+## [<strong>container.requirements.general</strong>] ## {#container}
 
 In [**container.requirements.general**] [21.2.1] clarify the ambigous
 "components affected by this subclause" terminology in p3. Just say
@@ -370,9 +330,9 @@ We can then simplify p15:
 </blockquote>
 
 
-## Design Considerations ## {#design}
+# Design Considerations # {#design}
 
-### Method vs. Standalone "Buffer" Type
+## Method vs. Alternatives
 
 During the [[SAN]] Meeting, LEWG expressed a preference for implementing
 this as a new method on `basic_string` (as proposed in [[P1072R0]]) rather than a
@@ -386,30 +346,8 @@ Method on string vs storage_buffer type:
 </table>
 </blockquote>
 
+See below for additional details on alternatives considered.
 
-### Tag type vs. Method Name
-
-TODO
-
-
-### Analysis Tools
-
-Analysis tools which base their analysis on the `size()` of the string
-will be weakend by this proposal.
-
-Dynamic analysis tools which track uninitialized state of memory, such
-as Valgrind and Memory Sanitizer (TODO add references) will be abel to
-diagnose reads from uninitialized elements of the string.
-
-
-## Bikeshedding ## {#bikeshed}
-
-What do we want to call this method?
-
-*   `resize_default_init` (as proposed). Consistent with [[P1020R1]], adopted in San Diego Meeting.
-*   `resize_uninitialized` (as proposed in R0)
-
-# Alternatives Considered # {#alternatives}
 
 ## Tag Type ## {#tag}
 
@@ -444,6 +382,65 @@ Drawbacks:
     but there are possible pitfalls around interactions with allocators
     and the types supported (do we cover [[P0593R2]] / [[P1144R0]] /
     etc.).
+
+## Allocator Interaction ## {#allocator}
+
+Unlocking the desired optimizations requires *some* change to
+`basic_string`'s interaction with allocators. This proposal does what
+we think is the simplest possible change: remove the requirement that
+`basic_string` call `allocator_traits::construct` or
+`allocator_traits::destroy`.
+
+This restriction should be acceptable because `basic_string` is
+defined to only hold "non-array trivial standard-layout" types.
+[[strings.general](http://eel.is/c++draft/strings.general#1)] p1:
+
+<blockquote>
+
+This Clause describes components for manipulating sequences of any
+non-array trivial standard-layout (6.7) type. Such types are called
+*char-like types*, and objects of *char-like types* are *called
+char-like objects* or simply *characters*.
+
+</blockquote>
+
+Removing calls to `construct` and `destroy` is compatible with
+`pmr::basic_string` as long as `uses_allocator_v<charT>` is `false`,
+which should be the case in practice.
+
+Along the way, this proposal clarifies ambigous language in
+[**string.require**] and [**container.requirements.general**] by:
+
+* Stating explicitly that `basic_string` is allocator-aware.
+
+* Introducing the term "allocator-aware" earlier in
+  [**container.requirements.general**].
+
+* Not attempting to mention other "components" in
+  [**container.requirements.general**]. The other allocator aware
+  containers (just `basic_string` and `regex::match_results`?) can
+  independently state that they are "allocator-aware" in their own
+  clauses.
+
+
+## Analysis Tools
+
+Analysis tools which base their analysis on the `size()` of the string
+will be weakend by this proposal.
+
+Dynamic analysis tools which track uninitialized state of memory, such
+as Valgrind and Memory Sanitizer (TODO add references) will be abel to
+diagnose reads from uninitialized elements of the string.
+
+
+## Bikeshedding ## {#bikeshed}
+
+What do we want to call this method?
+
+*   `resize_default_init` (as proposed). Consistent with [[P1020R1]], adopted in San Diego Meeting.
+*   `resize_uninitialized` (as proposed in R0)
+
+# Alternatives Considered # {#alternatives}
 
 ## Standalone Type:  `storage_buffer` ## {#buffer}
 
