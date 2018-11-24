@@ -362,15 +362,26 @@ Method on string vs storage_buffer type:
 </table>
 </blockquote>
 
-See below for additional details on alternatives considered.
+Several other alternatives were discussed at [[SAN]] and on the reflector.
+Please see [[#alternatives]] below for mored details.
 
 
 ## Tag Type ## {#tag}
 
-At the [[SAN]] Meeting, LEWG showed indifference between the
-`resize_uninitialized` approach proposed in this paper and a "tag type"
-style solution:
+At the [[SAN]] Meeting, LEWG showed some support for a tag argument type:
 
+<blockquote>
+Approval (vote for as many as you find acceptable)
+<table>
+<tr><td>13 </td><td>Go back to resize_uninitialized</td></tr>
+<tr><td>15 </td><td>Do tag type (default_initialize) for c'tor / resize()</td></tr>
+<tr><td>12 </td><td>Continue with storage_buffer (as per R2 of this paper)</td></tr>
+<tr><td> 7 </td><td>Crack open with a lambda</td></tr>
+<tr><td> 7 </td><td>RAII separate type</td></tr>
+</table>
+</blockquote>
+
+For example:
 <xmp>
 std::string GeneratePattern(const std::string& pattern, size_t count) {
    std::string ret;
@@ -386,6 +397,8 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
    return ret;
 }
 </xmp>
+
+
 
 Benefits:
 *   We could invoke the constructor with the tag type as well, potentially
