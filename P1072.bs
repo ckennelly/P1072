@@ -277,7 +277,7 @@ void resize_default_init(size_type n);
 <li>If `n <= size()`, as if by `resize(n)`.</li>
 
 <li>If `n > size()`, the function replaces the string designated by
-    `*this` with a st ring of length `n` whose first `size()` elements
+    `*this` with a string of length `n` whose first `size()` elements
     are a copy of the original string designated by `*this`, and whose
     remaining elements are default initialized.</li>
 
@@ -430,7 +430,7 @@ Analysis tools which base their analysis on the `size()` of the string
 will be weakend by this proposal.
 
 Dynamic analysis tools which track uninitialized state of memory, such
-as Valgrind and Memory Sanitizer (TODO add references) will be abel to
+as Valgrind and Memory Sanitizer (TODO add references) will be able to
 diagnose reads from uninitialized elements of the string.
 
 
