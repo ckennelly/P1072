@@ -55,45 +55,6 @@ We want to solve this problem
 </table>
 </blockquote>
 
-## Allocator Interaction ## {#interact}
-
-Unlocking the desired optimizations requires *some* change to
-`basic_string`'s interaction with allocators. This proposal does what
-we think is the simplest possible change: remove the requirement that
-`basic_string` call `allocator_traits::construct` or
-`allocator_traits::destroy`.
-
-This restriction should be acceptable because `basic_string` is
-defined to only hold "non-array trivial standard-layout" types.
-[[strings.general](http://eel.is/c++draft/strings.general#1)] p1:
-
-<blockquote>
-
-This Clause describes components for manipulating sequences of any
-non-array trivial standard-layout (6.7) type. Such types are called
-*char-like types*, and objects of *char-like types* are *called
-char-like objects* or simply *characters*.
-
-</blockquote>
-
-Removing calls to `construct` and `destroy` is compatible with
-`pmr::basic_string` as long as `uses_allocator_v<charT>` is `false`,
-which should be the case in practice.
-
-Along the way, this proposal clarifies ambigous language in
-[**string.require**] and [**container.requirements.general**] by:
-
-* Stating explicitly that `basic_string` is allocator-aware.
-
-* Introducing the term "allocator-aware" earlier in
-  [**container.requirements.general**].
-
-* Not attempting to mention other "components" in
-  [**container.requirements.general**]. The other allocator aware
-  containers (just `basic_string` and `regex::match_results`?) can
-  independently state that they are "allocator-aware" in their own
-  clauses.
-
 ## Example: Stamping a Pattern ## {#pattern}
 
 Consider writing a pattern several times into a string:
@@ -204,6 +165,46 @@ std::string CompressWrapper(std::string_view input) {
     return std::string(std::move(compressed));
 }
 </xmp>
+
+# Allocator Interaction# {#allocator}
+
+Unlocking the desired optimizations requires *some* change to
+`basic_string`'s interaction with allocators. This proposal does what
+we think is the simplest possible change: remove the requirement that
+`basic_string` call `allocator_traits::construct` or
+`allocator_traits::destroy`.
+
+This restriction should be acceptable because `basic_string` is
+defined to only hold "non-array trivial standard-layout" types.
+[[strings.general](http://eel.is/c++draft/strings.general#1)] p1:
+
+<blockquote>
+
+This Clause describes components for manipulating sequences of any
+non-array trivial standard-layout (6.7) type. Such types are called
+*char-like types*, and objects of *char-like types* are *called
+char-like objects* or simply *characters*.
+
+</blockquote>
+
+Removing calls to `construct` and `destroy` is compatible with
+`pmr::basic_string` as long as `uses_allocator_v<charT>` is `false`,
+which should be the case in practice.
+
+Along the way, this proposal clarifies ambigous language in
+[**string.require**] and [**container.requirements.general**] by:
+
+* Stating explicitly that `basic_string` is allocator-aware.
+
+* Introducing the term "allocator-aware" earlier in
+  [**container.requirements.general**].
+
+* Not attempting to mention other "components" in
+  [**container.requirements.general**]. The other allocator aware
+  containers (just `basic_string` and `regex::match_results`?) can
+  independently state that they are "allocator-aware" in their own
+  clauses.
+
 
 # Proposal # {#prop}
 
