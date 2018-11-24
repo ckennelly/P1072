@@ -93,7 +93,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 }
 </xmp>
 
-Wit this proposal:
+With this proposal:
 
 <xmp>
 std::string GeneratePattern(const std::string& pattern, size_t count) {
@@ -141,7 +141,7 @@ std::string CompressWrapper(std::string_view input) {
 }
 </xmp>
 
-With this propsoal:
+With this proposal:
 
 <xmp>
 extern "C" {
