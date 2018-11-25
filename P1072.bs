@@ -476,7 +476,9 @@ What do we want to call this method?
 
 * `resize_uninitialized` (as proposed in R0). "Uninitialized" is
   different from "default initialized", which is what we want to
-  specify.
+  specify. Also, `uninitialized` is already used elsewhere in the
+  Library to mean "not constructed at all", as in
+  `uninitialized_copy`; so this would be an overloading of the term.
 
 # Alternatives Considered # {#alternatives}
 
@@ -720,6 +722,8 @@ Applied feedback from [[SAN]] Meeting reviews.
 
 *   Reverted design to "option A" proposed in [[P1072R0]]
 *   Added discussion of alternatives considered
+*   Specified allocator interaction.
+*   Added wording.
 
 ## R0 &rarr; R1 ## {#R1}
 
@@ -733,6 +737,14 @@ Applied feedback from LEWG [[post-Rapperswil]] Email Review:
 *   Added discussion of design and implementation considerations.
 
 *   Most of [[P1010R1]] Was merged into this paper.
+
+# Acknowledgments # {#acknowledgments}
+
+Thanks go to **Arthur O'Dwyer** for help with wording and proof
+reading, and to **Glen Fernandes**, **Eric Fiselier**, **Corentin
+Jabot**, **Billy O'Neal**, and **Mathias Stearn** for design
+discussion.
+
 
 <pre class=biblio>
 {
