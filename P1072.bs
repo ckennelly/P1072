@@ -136,7 +136,7 @@ std::string CompressWrapper(std::string_view input) {
     }
 
     // Set actual size.
-    compress.resize(size);
+    compressed.resize(size);
     return compressed;
 }
 </xmp>
@@ -162,8 +162,8 @@ std::string CompressWrapper(std::string_view input) {
     }
 
     // Set actual size.
-    compress.resize(size);
-    return compress;
+    compressed.resize(size);
+    return compressed;
 }
 </xmp>
 
@@ -215,10 +215,10 @@ and `destroy`.
 <ins>
 
 4. `basic_string` is an allocator-aware container as described in
-  [container.requirements.general], except that `basic_string`
-  directly constructs and destroys elements of the sequence and does
-  not call `allocator_traits::construct` or
-  `allocator_traits::destroy`.
+  [container.requirements.general], except that it is implementation
+  defined whether `allocator_traits::construct` and
+  `allocator_traits::destroy` are used to construct and destroy the
+  contained `charT` objects.
 
 </ins>
 
@@ -303,12 +303,12 @@ In [**container.requirements.general**] [21.2.1] clarify the ambiguous
 <blockquote>
 <ol start="3">
 
-<li><ins>All of the containers defined in this Clause except `array` are
-    allocator-aware containers.</ins> <del> For the components
+<li><ins>All of the containers defined in this Clause except `array`
+    are allocator-aware containers.</ins> <del> For the components
     affected by this subclause that declare an allocator_type</del>
-    <ins>All</ins>, objects stored in <del> these components </del>
-    <ins> allocator-aware containers, except as noted, </ins> shall be
-    constructed using the function
+    <ins>Objects</ins><del>objects</del> stored in <del> these
+    components </del> <ins> allocator-aware containers, except as
+    noted, </ins> shall be constructed using the function
     `allocator_traits<allocator_type>::rebind_traits<U>::construct`
     and destroyed using the function
     `allocator_traits<allocator_type>::rebind_traits<U>::destroy`
