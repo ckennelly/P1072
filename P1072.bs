@@ -296,7 +296,7 @@ size_type capacity() const noexcept;
 
 ## [<strong>container.requirements.general</strong>] ## {#container}
 
-In [**container.requirements.general**] [21.2.1] clarify the ambigous
+In [**container.requirements.general**] [21.2.1] clarify the ambiguous
 "components affected by this subclause" terminology in p3. Just say
 "allocator-aware containers".
 
@@ -363,7 +363,7 @@ Method on string vs storage_buffer type:
 </blockquote>
 
 Several other alternatives were discussed at [[SAN]] and on the reflector.
-Please see [[#alternatives]] below for mored details.
+Please see [[#alternatives]] below for more details.
 
 
 ## Tag Type ## {#tag}
@@ -406,7 +406,7 @@ Benefits:
 
 Drawbacks:
 
-* Feature creep / complexlity — A tag type invites extending the
+* Feature creep / complexity — A tag type invites extending the
   feature through allocator traits to allocators. Indeed, that's a
   great idea! But default initialization is not enough. There is also
   "implicit construction" (see [[P1010R1]], [[P0593R2]]) and
@@ -487,11 +487,9 @@ providing a `prepare` method (similar to the `resize_uninitialized` method
 proposed here) and `commit` (to promise, under penalty of UB, that the
 buffer had been initialized).
 
-At the [[SAN]] Meeting, this approach received support from LEWGI in
-light of the the [[post-Rapperswil]] email review indicating support for a
-distinct type.  This approach was rejected by the larger LEWG room in San Diego Meeting
-Diego.
-
+At the [[SAN]] Meeting, this approach received support from LEWGI in light of
+the [[post-Rapperswil]] email review indicating support for a distinct type.
+This approach was rejected by the larger LEWG room in San Diego Meeting Diego.
 
 The proposed type would be move-only.
 
@@ -712,7 +710,7 @@ These optimizations are also supported in Boost Container's `small_vector`,
 
 # Questions for LEWG # {#questions}
 
-1.  Is LEWG satisified with this approach?
+1.  Is LEWG satisfied with this approach?
 
 # History # {#history}
 
