@@ -720,8 +720,9 @@ These optimizations are also supported in Boost Container's `small_vector`,
 
 Applied feedback from [[SAN]] Meeting reviews.
 
-*   Reverted design to "option A" proposed in [[P1072R0]]
-*   Added discussion of alternatives considered
+*   Reverted design to "option A" proposed in [[P1072R0]].
+*   Switched from `resize_uninitialized` to `resize_default_init`.
+*   Added discussion of alternatives considered.
 *   Specified allocator interaction.
 *   Added wording.
 
@@ -741,9 +742,10 @@ Applied feedback from LEWG [[post-Rapperswil]] Email Review:
 # Acknowledgments # {#acknowledgments}
 
 Thanks go to **Arthur O'Dwyer** for help with wording and proof
-reading, and to **Glen Fernandes**, **Eric Fiselier**, **Corentin
-Jabot**, **Billy O'Neal**, and **Mathias Stearn** for design
-discussion.
+reading, to **Jonathan Wakely** for hunting down the language that
+makes `basic_string` allocator-aware, and to **Glen Fernandes**,
+**Eric Fiselier**, **Corentin Jabot**, **Billy O'Neal**, and **Mathias
+Stearn** for design discussion.
 
 
 <pre class=biblio>
