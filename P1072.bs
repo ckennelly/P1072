@@ -415,10 +415,10 @@ Drawbacks:
   and should not block near term enablement of efficient [std::]string
   builders.
 
-* In reflector [discussion](http://lists.isocpp.org/lib-ext/2018/04/6712.php)
-  of `make_unique_default_init`, there was a
-  preference for avoiding tag types.  The standard library has `copy_backward`,
-  not `copy` with a tag, and `count_if`, rather than `count` with a predicate.
+* In reflector discussion of `make_unique_default_init` [[Zero]],
+  there was a preference for avoiding tag types. The standard library
+  has `copy_backward`, not `copy` with a tag, and `count_if`, rather
+  than `count` with a predicate.
 
 ## Allocator Interaction ## {#allocator}
 
@@ -430,7 +430,7 @@ we think is the simplest possible change: remove the requirement that
 
 This restriction should be acceptable because `basic_string` is
 defined to only hold "non-array trivial standard-layout" types.
-[[strings.general](http://eel.is/c++draft/strings.general#1)] p1:
+[**strings.general**] p1:
 
 <blockquote>
 
@@ -672,9 +672,9 @@ https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0</
 
 The [[N4734]] (the Networking TS) has *dynamic buffer* types.
 
-## P1020R0 ## {#p1020}
+## P1020R1 ## {#p1021}
 
-See also [[P1020R0]] "Smart pointer creation functions for default
+See also [[P1020R1]] "Smart pointer creation functions for default
 initialization".
 
 ## Boost ## {#boost}
@@ -751,61 +751,10 @@ Applied feedback from LEWG [[post-Rapperswil]] Email Review:
         "date": "2018-08-26",
         "title": "LEWG Weekly - P1072"
     },
-    "N4734": {
-        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/n4734.pdf",
-        "date": "2018-04-04",
-        "title": "Working Draft, C++ Extensions for Networking"
-    },
-    "N4762": {
-        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/n4762.pdf",
-        "date": "2018-07-07",
-        "title": "Working Draft, Standard for Programming Language C++"
-    },
-    "N4778": {
-        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/n4762.pdf",
-        "date": "2018-07-07",
-        "title": "Working Draft, Standard for Programming Language C++"
-    },
-
-    "P0083R3": {
-        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0083r3.pdf",
-        "date": "2016-06-24",
-        "title": "Splicing Maps and Sets"
-    },
-    "P0593R2": {
-        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0593r2.html",
-        "date": "2018-02-11",
-        "title": "Implicit creation of objects for low-level object manipulation"
-    },
-    "P1010R1": {
-        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1010r1.html",
-        "date": "2018-10-08",
-        "title": "Container support for implicit lifetime types."
-    },
-    "P1020R0": {
-        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1020r0.html",
-        "date": "2018-04-08",
-        "title": "Smart pointer creation with default initialization"
-    },
-    "P1020R1": {
-	"href": "https://wg21.link/P1020R1",
-	"date": "2018-11-06",
-	"title": "Smart pointer creation with default initialization"
-    },
-    "P1072R0": {
-        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1072r0.html",
-        "date": "2018-05-04",
-        "title": "Default Initialization for basic_string"
-    },
-    "P1072R1": {
-        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1072r1.html",
-        "date": "2018-10-07",
-        "title": "Optimized Initialization for basic_string and vector"
-    },
-    "P1144R0": {
-        "href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1144r0.html",
-        "date": "2018-10-04",
-        "title": "Object relocation in terms of move plus destroy"
+    "Zero": {
+        "href": "http://lists.isocpp.org/lib-ext/2018/04/6712.php",
+        "date": "2018-04-13",
+        "title": "Listening to our customers: Zero-initialization issue"
     },
     "Protobuf": {
         "href": "https://github.com/protocolbuffers/protobuf",
@@ -822,7 +771,7 @@ Applied feedback from LEWG [[post-Rapperswil]] Email Review:
         "title": "Memory Sanitizer"
     },
     "Valgrind": {
-        "http://www.valgrind.org",
+        "href": "http://www.valgrind.org",
         "title": "Valgrind"
     }
 }
