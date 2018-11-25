@@ -20,7 +20,7 @@ Default Highlight: C++
 
 Performance sensitive code is impacted by the cost of initializing and
 manipulating strings: When streaming data into a `basic_string`, a
-programmer is forced with an unhappy choice:
+programmer is faced with an unhappy choice:
 
 * **Pay for extra initialization** &mdash; `resize`, which zero
     initializes, followed by copy.
@@ -31,7 +31,7 @@ programmer is forced with an unhappy choice:
 * **Pay for extra "bookkeeping"** &mdash; `reserve` followed by small
     appends, each of which checks capacity and null terminates.
 
-The effects of these unhappy choices can all be measured at scale.
+The effects of these unhappy choices can all be measured at scale, yet
 C++'s hallmark is to leave no room between the language (or in this
 case the library) and another language.
 
