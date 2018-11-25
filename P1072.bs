@@ -415,8 +415,10 @@ Drawbacks:
   and should not block near term enablement of efficient [std::]string
   builders.
 
-* In reflector discussion of `make_unique_default_init` there was a
-  preference for avoiding tag types. (TODO add links?)
+* In reflector [discussion](http://lists.isocpp.org/lib-ext/2018/04/6712.php)
+  of `make_unique_default_init`, there was a
+  preference for avoiding tag types.  The standard library has `copy_backward`,
+  not `copy` with a tag, and `count_if`, rather than `count` with a predicate.
 
 ## Allocator Interaction ## {#allocator}
 
