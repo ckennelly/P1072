@@ -38,7 +38,7 @@ case the library) and another language.
 LEWGI polled on this at the [[SAN]] Meeting:
 
 <blockquote>
-We should promise more commitee time to [[P1072R1]], knowing that our
+We should promise more committee time to [[P1072R1]], knowing that our
 time is scarce and this will leave less time for other work?
 <br/>*Unanimous consent*
 </blockquote>
@@ -150,7 +150,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 ## Example: Interacting with C ## {#c}
 
 Consider wrapping a C API while working in terms of C++'s `basic_string`
-vocabulary.  We *anticipate* overallocating, as computation of the *length* of
+vocabulary.  We *anticipate* over-allocating, as computation of the *length* of
 the data is done simultaneously with the computation of the *contents*.
 
 <xmp>
@@ -207,9 +207,9 @@ std::string CompressWrapper(std::string_view input) {
 
 ## Method vs. Alternatives
 
-`resize_default_init` would exposes users to UB if they read
-indeterminate ([**dcl.init**] p12 (9.3.12)) values in the string.
-Despite this, this approach is appealing because:
+`resize_default_init` exposes users to UB if they read indeterminate
+([**dcl.init**] p12 (9.3.12)) values in the string. Despite this
+foot-gun, `resize_default_init` is appealing because:
 
 * It is simple.
 
@@ -223,7 +223,7 @@ Despite this, this approach is appealing because:
 
 During the [[SAN]] Meeting LEWG expressed a preference for
 implementing this functionality as a new method on `basic_string` (as
-proposed in [[P1072R0]]) rather than a standalone "storage buffer"
+proposed in [[P1072R0]]) rather than a stand alone "storage buffer"
 type (one option in [[P1072R1]]):
 
 <blockquote>
@@ -317,7 +317,7 @@ Removing calls to `construct` and `destroy` is compatible with
 `pmr::basic_string` as long as `uses_allocator_v<charT>` is `false`,
 which should be the case in practice.
 
-Along the way, this proposal clarifies ambigous language in
+Along the way, this proposal clarifies ambiguous language in
 [**string.require**] and [**container.requirements.general**] by:
 
 * Stating explicitly that `basic_string` is allocator-aware.
@@ -342,7 +342,7 @@ https://godbolt.org/#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAKxAEZSAbAQwDtRkBS
 What do we want to call this method?
 
 * `resize_default_init` (as proposed). Consistent with [[P1020R1]],
-  adopted in San Diego. Also specifying default initialization throws
+  adopted in San Diego. Also, specifying default initialization throws
   a bone to libraries that have historically allowed non-trivial
   `charT` types in `basic_string`.
 
@@ -418,13 +418,13 @@ Drawbacks:
 
 ## Externally-Allocated Buffer Injection ## {#external}
 
-We asked whether we should accept an externally allocated and initialized `T*`
-and place it into a `basic_string`.  At the [[SAN]] Meeting, we concluded that
-this was:
+In [[P1072R1]], we considered that `basic_string` could "adopt" an
+externally `allocator::allocate`'d buffer. At the [[SAN]] Meeting, we
+concluded that this was:
 
 *  **Not critical**
 *  **Not constrained in the future**
-*  **Could overly constrain implementers**.  Allowing users to provide their own `allocator::allocate`'d buffers runs into the "offset problem".  Consider an implementation that stores its `size` and `capacity` inline with its data, so `sizeof(vector) == sizeof(void*)`.
+*  **Could overly constrain implementers**.  Allowing users to provide their own buffers runs into the "offset problem".  Consider an implementation that stores its `size` and `capacity` inline with its data, so `sizeof(container) == sizeof(void*)`.
 
     <xmp>
     class container {
@@ -441,47 +441,14 @@ this was:
     requires an O(N) move to shift the contents into place and trigger a
     possible reallocation.
 
-*  **Have usage pitfalls**.  It would be easy to mix `new[]` and `allocator::deallocate` inadvertently:
-
-    <xmp>
-    std::string GeneratePattern(const std::string& pattern, size_t count) {
-        const auto step = pattern.size();
-
-        // GOOD:  No initialization
-        std::string ret;
-        ret.reserve(step * count);
-
-        auto tmp = ret.release();
-
-        char* start = tmp.data();
-        auto  size  = tmp.size();
-        auto  cap   = tmp.capacity();
-        tmp.release();
-
-        for (size_t i = 0; i < count; i++) {
-            // GOOD: No bookkeeping
-            memcpy(start + i * step, pattern.data(), step);
-        }
-
-        return std::string(std::storage_node(
-            tmp, size + count * step, cap, alloc));
-    }
-    </xmp>
-
-    (It is important to reiterate that the above implementation is possible
-    because we statically know that the allocator is `std::allocator` and that
-    the `value_type` is `char`. A generic implementation of this pattern would
-    need to be constrained based on allocators, allocator traits, and value
-    types. Future library and language extensions may expand the set of
-    applicable types and may make it easier to constrain generic
-    implementations.)
+*  **Have usage pitfalls**.  It would be easy to mix `new[]` and `allocator::allocate` inadvertently.
 
 # Related Work # {#related}
 
 ## Google ## {#google}
 
 Google has a local extension to `basic_string` called `resize_uninitialized`
-and is wrapped as `STLStringResizeUninitialized`.
+which is wrapped as `STLStringResizeUninitialized`.
 
 *   [[Abseil]] uses this to avoid bookkeeping overheads in `StrAppend` and
     `StrCat`.
@@ -549,7 +516,7 @@ The [[N4734]] (the Networking TS) has *dynamic buffer* types.
 ## P1020R1 ## {#p1021}
 
 See also [[P1020R1]] "Smart pointer creation functions for default
-initialization".
+initialization". Adopted in San Diego.
 
 ## Boost ## {#boost}
 
@@ -584,7 +551,8 @@ These optimizations are also supported in Boost Container's `small_vector`,
 
 # Wording # {#wording}
 
-Wording relative to [[N4778]].
+Wording is relative to [[N4778]]. Motivation for some of these edits
+can be found in [[#allocator]].
 
 ## [<strong>basic.string</strong>] ## {#basic.string}
 
