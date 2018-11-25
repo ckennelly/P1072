@@ -135,7 +135,7 @@ std::string CompressWrapper(std::string_view input) {
       throw ...some error...
     }
 
-    // Shrink compress to its true size.
+    // Set actual size.
     compress.resize(size);
     return compressed;
 }
@@ -161,9 +161,9 @@ std::string CompressWrapper(std::string_view input) {
       throw ...some error...
     }
 
-    // Shrink compress to its true size.
-    compress.commit(size);
-    return std::string(std::move(compressed));
+    // Set actual size.
+    compress.resize(size);
+    return compress;
 }
 </xmp>
 
@@ -408,12 +408,12 @@ Drawbacks:
 
 * Feature creep / complexity — A tag type invites extending the
   feature through allocator traits to allocators. Indeed, that's a
-  great idea! But default initialization is not enough. There is also
-  "implicit construction" (see [[P1010R1]], [[P0593R2]]) and
-  "relocation" (see [[P1144R0]], [[P1029R1]]). We need these wonderful
-  things, but they have greater complexity and less field experience
-  and should not block near term enablement of efficient [std::]string
-  builders.
+  great idea, and exactly what Boost does. However, default
+  initialization is not enough. There is also "implicit construction"
+  (see [[P1010R1]], [[P0593R2]]) and "relocation" (see [[P1144R0]],
+  [[P1029R1]]). We need all these wonderful things, but they have
+  greater complexity and less field experience and should not block
+  near-term enablement of efficient [std::]string builders.
 
 * In reflector discussion of `make_unique_default_init` [[Zero]],
   there was a preference for avoiding tag types. The standard library
