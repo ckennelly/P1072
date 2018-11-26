@@ -63,24 +63,15 @@ This proposal addresses the problem by adding
 <pre highlight="">
 void resize_default_init(size_type n);
 </pre>
-
-<ol start="9">
-<li> *Throws*: `length_error` if `n > max_size()`.</li>
-
-<li>*Effects*:  Alters the length of the string designated by `*this` as follows:
-<ol>
-
-<li>— If `n <= size()`, as if by `resize(n)`.</li>
-
-<li>— If `n > size()`, the function replaces the string designated by
-    `*this` with a string of length `n` whose first `size()` elements
-    are a copy of the original string designated by `*this`, and whose
-    remaining elements are default initialized.</li>
-
-</ol>
+<ol start="8">
+<li>*Effects:* Alters the value of `*this` as follows:
+     <ol>
+     <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
+     <li>— If `n > size()`, appends `n - size()` default initialized
+         elements.</li>
+     </ol>
 </li>
 </ol>
-
 </ins>
 </blockquote>
 
@@ -553,8 +544,9 @@ These optimizations are also supported in Boost Container's `small_vector`,
 
 # Wording # {#wording}
 
-Wording is relative to [[N4778]]. Motivation for some of these edits
-can be found in [[#allocator]].
+Wording is relative to [[N4778]] with [[P1148R0]] applied.
+
+Motivation for some of these edits can be found in [[#allocator]].
 
 ## [<strong>basic.string</strong>] ## {#basic.string}
 
@@ -588,14 +580,15 @@ and `destroy`.
 3. In every specialization `basic_string<charT, traits, Allocator>`,
   the type `allocator_traits<Allocator>::value_type` shall name the
   same type as `charT` <del>. Every object of type
-  `basic_string<charT, traits, Allocator>` shall use an object of type
+  `basic_string<charT, traits, Allocator>` uses an object of type
   `Allocator` to allocate and free storage for the contained `charT`
-  objects as needed. The Allocator object used shall be obtained as
+  objects as needed. The Allocator object used is obtained as
   described in [container.requirements.general]. In every
   specialization `basic_string<charT, traits, Allocator>`</del>, <ins>
   and</ins> the type `traits` shall satisfy the character traits
-  requirements ([char.traits]), and the type `traits::char_type` shall
-  name the same type as `charT`.
+  requirements ([char.traits]). [*Note:* The program is ill-formed if
+  `traits::char_type` is not the same type as `charT`. &mdash; *end
+  note*]
 
 <ins>
 
@@ -622,30 +615,19 @@ void resize(size_type n, charT c);
 
 <ol start="6">
 
-<li>*Throws:* `length_error` if `n > max_size()`.</li>
-
-<li>*Effects:* Alters the length of the string designated by `*this` as follows:
-<ol>
-
-<li>— If `n <= size()`, the function replaces the string designated by
-    `*this` with a string of length `n` whose elements are a copy of
-    the initial elements of the original string designated by
-    `*this`.</li>
-
-<li>— If `n > size()`, the function replaces the string designated by
-    `*this` with a string of length `n` whose first `size()` elements
-    are a copy of the original string designated by `*this`, and whose
-    remaining elements are all initialized to `c`.</li>
-
-</ol>
+<li>*Effects:* Alters the value of `*this` as follows:
+     <ol>
+     <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
+     <li>— If `n > size()`, appends `n - size()` copies of `c`.</li>
+     </ol>
 </li>
 </ol>
 
 <pre highlight="">
 void resize(size_type n);
 </pre>
-<ol start="8">
-<li>*Effects:* As if by `resize(n, charT())`.</li>
+<ol start="7">
+<li>*Effects:* Equivalent to `resize(n, charT())`.</li>
 </ol>
 
 <ins>
@@ -653,20 +635,14 @@ void resize(size_type n);
 void resize_default_init(size_type n);
 </pre>
 
-<ol start="9">
-<li> *Throws*: `length_error` if `n > max_size()`.</li>
+<ol start="8">
 
-<li>*Effects*:  Alters the length of the string designated by `*this` as follows:
-<ol>
-
-<li>— If `n <= size()`, as if by `resize(n)`.</li>
-
-<li>— If `n > size()`, the function replaces the string designated by
-    `*this` with a string of length `n` whose first `size()` elements
-    are a copy of the original string designated by `*this`, and whose
-    remaining elements are default initialized.</li>
-
-</ol>
+<li>*Effects:* Alters the value of `*this` as follows:
+     <ol>
+     <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
+     <li>— If `n > size()`, appends `n - size()` default initialized
+         elements.</li>
+     </ol>
 </li>
 </ol>
 
