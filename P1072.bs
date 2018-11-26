@@ -1,16 +1,16 @@
 <pre class='metadata'>
 Title: basic_string::resize_default_init
 Status: P
-Shortname: P1072
+Shortname: D1072
 Group: WG21
-Revision: 2
+Revision: 3
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2018-11-25
+Date: 2018-11-26
 Audience: LEWG
 Audience: LWG
 Audience: SG16
-Abstract: Allow access to default initialized elements of basic_string.
+Abstract: Allow access to default-initialized elements of basic_string.
 URL: http://wg21.link/P1072R2
 Markup Shorthands: markdown yes
 Default Highlight: C++
@@ -67,7 +67,7 @@ void resize_default_init(size_type n);
 <li>*Effects:* Alters the value of `*this` as follows:
      <ol>
      <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
-     <li>— If `n > size()`, appends `n - size()` default initialized
+     <li>— If `n > size()`, appends `n - size()` default-initialized
          elements.</li>
      </ol>
 </li>
@@ -335,12 +335,12 @@ What do we want to call this method?
 
 * `resize_default_init` (as proposed). This is consistent with
   `make_unique_default_init` [[P1020R1]], adopted in San Diego. Also,
-  specifying default initialization throws a bone to libraries that
+  specifying default-initialization throws a bone to libraries that
   have historically allowed non-trivial `charT` types in
   `basic_string`.
 
 * `resize_uninitialized` (as proposed in R0). "Uninitialized" is
-  different from "default initialized", which is what we want to
+  different from "default-initialized", which is what we want to
   specify. Also, `uninitialized` is already used elsewhere in the
   Library to mean "not constructed at all", as in
   `uninitialized_copy`; so this would be an overloading of the term.
@@ -640,7 +640,7 @@ void resize_default_init(size_type n);
 <li>*Effects:* Alters the value of `*this` as follows:
      <ol>
      <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
-     <li>— If `n > size()`, appends `n - size()` default initialized
+     <li>— If `n > size()`, appends `n - size()` default-initialized
          elements.</li>
      </ol>
 </li>
@@ -667,13 +667,13 @@ In [**container.requirements.general**] [21.2.1] clarify the ambiguous
 <li><ins>All of the containers defined in this Clause except `array`
     are allocator-aware containers.</ins> <del> For the components
     affected by this subclause that declare an allocator_type</del>
-    <ins>Objects</ins><del>objects</del> stored in <del> these
-    components </del> <ins> allocator-aware containers, except as
-    noted, </ins> shall be constructed using the function
-    `allocator_traits<allocator_type>::rebind_traits<U>::construct`
-    and destroyed using the function
-    `allocator_traits<allocator_type>::rebind_traits<U>::destroy`
-    (19.10.9.2). </li>
+    <ins>Objects</ins><del>objects</del> stored in <del> these components
+    </del> <ins> allocator-aware containers, unless otherwise specified, </ins>
+    shall be constructed using the function
+    `allocator_traits<allocator_type>::rebind_traits<U>::construct` and
+    destroyed using the function
+    `allocator_traits<allocator_type>::rebind_traits<U>::destroy` (19.10.9.2).
+    </li>
 
 </ol>
 </blockquote>
