@@ -6,7 +6,7 @@ Group: WG21
 Revision: 2
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2018-11-08
+Date: 2018-11-25
 Audience: LEWG
 Audience: LWG
 Audience: SG16
@@ -19,7 +19,7 @@ Default Highlight: C++
 # Motivation # {#mot}
 
 Performance sensitive code is impacted by the cost of initializing and
-manipulating strings: When streaming data into a `basic_string`, a
+manipulating strings. When streaming data into a `basic_string`, a
 programmer is faced with an unhappy choice:
 
 * **Pay for extra initialization** &mdash; `resize`, which zero
@@ -85,14 +85,14 @@ void resize_default_init(size_type n);
 </blockquote>
 
 In order to enable `resize_default_init`, this proposal makes it
-"implementation defined" whether `basic_string` uses
+implementation defined whether `basic_string` uses
 `allocator_traits::construct` and `allocator_traits::destroy` to
 construct and destroy the "char-like objects" that it controls. See
-[[#design]] and [[#wording]] below for more details.
+[[#allocator]] and [[#wording]] below for more details.
 
 # Examples # {#examples}
 
-## Example: Stamping a Pattern ## {#pattern}
+## Stamping a Pattern ## {#pattern}
 
 Consider writing a pattern several times into a string:
 <xmp>
@@ -136,7 +136,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
    std::string ret;
 
    const auto step = pattern.size();
-   // GOOD:  No initialization
+   // GOOD: No initialization
    ret.resize_default_init(step * count);
    for (size_t i = 0; i < count; i++) {
      // GOOD: No bookkeeping
@@ -147,7 +147,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 }
 </xmp>
 
-## Example: Interacting with C ## {#c}
+## Interacting with C ## {#c}
 
 Consider wrapping a C API while working in terms of C++'s `basic_string`
 vocabulary.  We *anticipate* over-allocating, as computation of the *length* of
@@ -164,7 +164,7 @@ std::string CompressWrapper(std::string_view input) {
     // Compute upper limit of compressed input.
     size_t size = compressBound(input.size());
 
-    // SUB-OPTIMAL:  Extra initialization
+    // SUB-OPTIMAL: Extra initialization
     compressed.resize(size);
     int ret = compress(compressed.begin(), &size, input.data(), input.size());
     if (ret != OK) {
@@ -190,7 +190,7 @@ std::string CompressWrapper(std::string_view input) {
     // Compute upper limit of compressed input.
     size_t size = compressBound(input.size());
 
-    // GOOD:  No initialization
+    // GOOD: No initialization
     compressed.resize_default_init(size);
     int ret = compress(compressed.begin(), &size, input.data(), input.size());
     if (ret != OK) {
@@ -223,7 +223,7 @@ foot-gun, `resize_default_init` is appealing because:
 
 During the [[SAN]] Meeting LEWG expressed a preference for
 implementing this functionality as a new method on `basic_string` (as
-proposed in [[P1072R0]]) rather than a stand alone "storage buffer"
+proposed in [[P1072R0]]) rather than a standalone "storage buffer"
 type (one option in [[P1072R1]]):
 
 <blockquote>
@@ -272,7 +272,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 Benefits:
 
 * A constructor that takes a tag type simplifies some use cases, like
-  the above example.
+  the example above.
 
 * Matches existing practice in Boost. See [[#boost]].
 
@@ -283,9 +283,10 @@ Drawbacks:
   great idea, and exactly what Boost does. However, default
   initialization is not enough. There is also "implicit construction"
   (see [[P1010R1]], [[P0593R2]]) and "relocation" (see [[P1144R0]],
-  [[P1029R1]]). We need all these wonderful things, but they have
-  greater complexity and less field experience and should not block
-  near-term enablement of efficient [std::]string builders.
+  [[P1029R1]]). We need all these wonderful things and not just for
+  `basic_string`, but they have greater complexity and less field
+  experience. A tagged initialization framework for allocators should
+  not block near-term enablement of efficient [std::]string builders.
 
 * In reflector discussion of `make_unique_default_init` [[Zero]],
   there was a preference for avoiding tag types. The standard library
@@ -334,17 +335,18 @@ Along the way, this proposal clarifies ambiguous language in
 libstdc++ and msvc allow strings of non-trivial type. That might force
 those libraries to continue to support `construct` and `destroy` as
 "extensions". On the other hand, libc++ disallows non-trivial
-`charT`s, so the extensions are non-portable.. See [godbolt.org](
+`charT`s, so any such extensions are non-portable.. See [godbolt.org](
 https://godbolt.org/#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAKxAEZSAbAQwDtRkBSAJgCFufSAZ1QBXYskwgA5NwDMeFsgYisAag6yAwoILEFwDdg4AGAIInTO9CBAAjJoLzIA%2Bjr1sN2gtZBv9h1QAzVFQIAEp1AHY%2BM1U41Ssbe0cXPw8tRN9df1lsBI0Y03iEgDpiTEcAL0wILjCCi2LygjEWfNlCjkiAEQspMMZpAFYpUhZpY1HUaU1%2BfgTRcUx1LllaUYIJ/oGAaxBVksiATgAOABYzgDYuE64rs9pLy8GpM9HxqUnSaalRwRBjKRNp9%2BqQ4LAYIgUKgALYABzwDEwZAoEDQ8MRyJQzDYzl0IhYO1IgURBGR/wgti2pFsCiYxAAntJ1qR0TDMCwCAB5FgMJkg0hYGGsYBI6n4crIAh4ABuFWpmAAHphkCIyczRgoyQwNUC9DCtgMcew5rxGHhbP9IANUHDpagWP8pABaKwMC0abru2ycXj8P6LCR0I3Dd7Un6Kk6XZ2XM6qJQi1QQfGEiIQXCEEgrNakVSaWEIpHEbO0CKzP28DaG3YgIZHEpHSKRO60c6RIa0SLGWRDF5vUgGoaAj5fH5/AFAw1gyEQJCiAhwtXkSjowtY%2BiYfBEYh0UgAd2ITDhGpDUhGY3D0jktFUe8ICFUkejsfjxqTKZ2YSrILCAwQmCYLAd3CPtRkHYdL1%2BIQJ2BSZf1IPYDi4Otbi4LgjlkM4hlkI4zheWQwwFMdJx/ad4HBKFV0xFEVwLaiQGAQQWCPQQEFQAhiVJclKCpAVaWYxldTZDluV5fkviFEUxQFCUVWlOUnS%2BJUVTVSQpBZLVMB1dSNn1KdjRQU0BG9K0QNte1HWkAMxCDUsXnPEcpmkJ8YzjYBkGQd9iAJT8kwzbcS1zfMMSLbM6jzIzvzgv8AKAygazuEoTlodDaDS44TiOdCuFAgdawgoirOgwFYNBCjZxAedFw41EqKLfZSE3TMd3oA8jxPezCNHK9Vi4W970fKNXNUdzPOTbzUyi7ZSH/QCsRA7T%2B3Ai9Cqg/4SurBD9iGEorijG5uzOSIjtjfCuqcqDSoGcqZyQOrkWXNE6PqqQZWQOE4WcGVaCOZxaCGZwIBlQQ/oBk4wmcRVY1GEkGDJYgKV4r5%2BPpfkWWEzkeT5cVMGFNhpIkvBJXk%2BUBWU1V1R08hOS03VsgNUiDN9PgzRM%2BAbTtPAHSdaylmDTqVu6qQobjGFBDe1Rvvrf6kwANQAZVUf6krTfys2vILnuRbNZDLSKSOimbYvmmtaDOEocJOYxjCGS5ZG7S4TiGVZcuWxzviK9aDbK27KrVarHvundZEarcSF3Nrjx008HMguRZH6ggHxF1QxYlqWShliAFaVnbwam%2BDZrihbpCW/LBYu8cNp/BLIl2yI1m7WRMtkTDkOebSCIrj3Ls27SuHOnuC4GOUEa58YziAA%3D%3D%3D).
 
 ## Bikeshedding ## {#bikeshed}
 
 What do we want to call this method?
 
-* `resize_default_init` (as proposed). Consistent with [[P1020R1]],
-  adopted in San Diego. Also, specifying default initialization throws
-  a bone to libraries that have historically allowed non-trivial
-  `charT` types in `basic_string`.
+* `resize_default_init` (as proposed). This is consistent with
+  `make_unique_default_init` [[P1020R1]], adopted in San Diego. Also,
+  specifying default initialization throws a bone to libraries that
+  have historically allowed non-trivial `charT` types in
+  `basic_string`.
 
 * `resize_uninitialized` (as proposed in R0). "Uninitialized" is
   different from "default initialized", which is what we want to
@@ -424,7 +426,7 @@ concluded that this was:
 
 *  **Not critical**
 *  **Not constrained in the future**
-*  **Could overly constrain implementers**.  Allowing users to provide their own buffers runs into the "offset problem".  Consider an implementation that stores its `size` and `capacity` inline with its data, so `sizeof(container) == sizeof(void*)`.
+*  **Overly constraining to implementers**.  Allowing users to provide their own buffers runs into the "offset problem".  Consider an implementation that stores its `size` and `capacity` inline with its data, so `sizeof(container) == sizeof(void*)`.
 
     <xmp>
     class container {
@@ -441,7 +443,7 @@ concluded that this was:
     requires an O(N) move to shift the contents into place and trigger a
     possible reallocation.
 
-*  **Have usage pitfalls**.  It would be easy to mix `new[]` and `allocator::allocate` inadvertently.
+*  **Introducing new pitfalls**.  It would be easy to mix `new[]` and `allocator::allocate` inadvertently.
 
 # Related Work # {#related}
 
