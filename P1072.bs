@@ -1,6 +1,6 @@
 <pre class='metadata'>
 Title: basic_string::resize_default_init
-Status: P
+Status: D
 Shortname: D1072
 Group: WG21
 Revision: 3
