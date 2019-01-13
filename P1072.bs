@@ -276,13 +276,18 @@ Drawbacks:
   (see [[P1010R1]], [[P0593R2]]) and "relocation" (see [[P1144R0]],
   [[P1029R1]]). We need all these wonderful things and not just for
   `basic_string`, but they have greater complexity and less field
-  experience. A tagged initialization framework for allocators should
-  not block near-term enablement of efficient [std::]string builders.
+  experience.
 
 * In reflector discussion of `make_unique_default_init` [[Zero]],
   there was a preference for avoiding tag types. The standard library
   has `copy_backward`, not `copy` with a tag, and `count_if`, rather
   than `count` with a predicate.
+
+Conclusion:
+
+LEWG should explore tags for allocator-aware containers, but that that
+exploration should not block near-term enablement of efficient
+[std::]string builders.
 
 ## Allocator Interaction ## {#allocator}
 
@@ -697,6 +702,13 @@ We can then simplify p15:
 1.  Is LEWG satisfied with this approach?
 
 # History # {#history}
+
+## R2 &rarr; R3 ## {#R2}
+
+*   Applied Jonathan Wakely's editorial comments on [[#wording]].
+*   Rebased on [[N4791]].
+*   Editorial changes to [[#tag]].
+
 
 ## R1 &rarr; R2 ## {#R2}
 
