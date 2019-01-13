@@ -285,9 +285,9 @@ Drawbacks:
 
 Conclusion:
 
-LEWG should explore tags for allocator-aware containers, but that that
-exploration should not block near-term enablement of efficient
-[std::]string builders.
+LEWG should explore tags for allocator-aware containers, but that work
+should not block near-term enablement of efficient [std::]string
+builders.
 
 ## Allocator Interaction ## {#allocator}
 
