@@ -199,7 +199,7 @@ std::string CompressWrapper(std::string_view input) {
 ## Method vs. Alternatives
 
 `resize_default_init` exposes users to UB if they read indeterminate
-([**dcl.init**] p12 (9.3.12)) values in the string. Despite this
+([**basic.indet**] (6.6.4)) values in the string. Despite this
 foot-gun, `resize_default_init` is appealing because:
 
 * It is simple.
@@ -544,7 +544,7 @@ These optimizations are also supported in Boost Container's `small_vector`,
 
 # Wording # {#wording}
 
-Wording is relative to [[N4778]] with [[P1148R0]] applied.
+Wording is relative to [[N4791]].
 
 Motivation for some of these edits can be found in [[#allocator]].
 
@@ -556,7 +556,7 @@ In [**basic.string**] [20.3.2], in the synopsis, add
 <blockquote>
 <pre highlight="">
 ...
-    // <em>23.3.2.4</em>, capacity
+    // <em>20.3.2.4</em>, capacity
     size_type size() const noexcept;
     size_type length() const noexcept;
     size_type max_size() const noexcept;
@@ -606,7 +606,7 @@ and `destroy`.
 
 </blockquote>
 
-In [**basic.string.capacity**] [20.3.2.4]:
+In [**string.capacity**] [20.3.2.4]:
 
 <blockquote>
 <pre highlight="">
