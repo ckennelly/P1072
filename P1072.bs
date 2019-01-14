@@ -87,6 +87,11 @@ implementation defined whether `basic_string` uses
 construct and destroy the "char-like objects" that it controls. See
 [[#allocator]] and [[#wording]] below for more details.
 
+# Implementation # {#impl}
+
+`libc++` includes a private implementation of this proposal and uses
+it to avoid a dynamic allocation in `std::filesystem` [[LIBC++]].
+
 # Examples # {#examples}
 
 ## Stamping a Pattern ## {#pattern}
@@ -716,6 +721,7 @@ We can then simplify p15:
 *   Rebased on [[N4791]].
 *   Editorial changes to [[#mot]] and [[#tag]] to support our design
     choice.
+*   Added the reference to [[LIBC++]] in [[#impl]].
 
 ## R1 &rarr; R2 ## {#R2}
 
@@ -745,8 +751,9 @@ Applied feedback from LEWG [[post-Rapperswil]] Email Review:
 Thanks go to **Arthur O'Dwyer** for help with wording and proof
 reading, to **Jonathan Wakely** for hunting down the language that
 makes `basic_string` allocator-aware, and to **Glen Fernandes**,
-**Eric Fiselier**, **Corentin Jabot**, **Billy O'Neal**, and **Mathias
-Stearn** for design discussion.
+**Corentin Jabot**, **Billy O'Neal**, and **Mathias Stearn** for
+design discussion. Special thanks to **Eric Fiselier** for providing
+the implmentation.
 
 
 <pre class=biblio>
@@ -788,6 +795,11 @@ Stearn** for design discussion.
     "Valgrind": {
         "href": "http://www.valgrind.org",
         "title": "Valgrind"
+    },
+    "LIBC++": {
+        "href": "http://llvm.org/viewvc/llvm-project?view=revision&revision=347589",
+        "date": "2018-11-26",
+        "title": "Add basic_string::__resize_default_init (from P1072)"
     }
 }
 </pre>
