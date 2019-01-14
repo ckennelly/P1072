@@ -51,6 +51,12 @@ We want to solve this problem
 <tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
 <tr><td>17</td><td>5</td><td>0</td><td>0</td><td>0</td></tr>
 </table>
+
+Willing to solve this for string without solving it for vector
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>6</td><td>9</td><td>2</td><td>1</td><td>0</td></tr>
+</table>
 </blockquote>
 
 # Proposal # {#proposal}
@@ -231,7 +237,7 @@ Please see [[#alternatives]] below for more details.
 
 ## Tag Type ## {#tag}
 
-At the [[SAN]] Meeting, LEWG showed some support for a tag argument type:
+At the [[SAN]] Meeting, LEWG showed support for a tag argument type:
 
 <blockquote>
 Approval (vote for as many as you find acceptable)
@@ -269,14 +275,15 @@ Benefits:
 
 Drawbacks:
 
-* Feature creep / complexity — A tag type invites extending the
-  feature through allocator traits to allocators. Indeed, that's a
-  great idea, and exactly what Boost does. However, default
+* Feature creep / complexity — A tag type invites generalizing for all
+  allocator aware container types. We agree that this is desirable and
+  even has implementation experience in Boost. However default
   initialization is not enough. There is also "implicit construction"
   (see [[P1010R1]], [[P0593R2]]) and "relocation" (see [[P1144R0]],
-  [[P1029R1]]). We need all these wonderful things and not just for
-  `basic_string`, but they have greater complexity and less field
-  experience.
+  [[P1029R1]]). Neither of these features are yet in the language. It
+  is too early to generalize. Note that the second poll quoted in
+  [[#mot]] shows support for solving this problem for `[basic_]string`
+  but not `vector`.
 
 * In reflector discussion of `make_unique_default_init` [[Zero]],
   there was a preference for avoiding tag types. The standard library
@@ -707,8 +714,8 @@ We can then simplify p15:
 
 *   Applied Jonathan Wakely's editorial comments on [[#wording]].
 *   Rebased on [[N4791]].
-*   Editorial changes to [[#tag]].
-
+*   Editorial changes to [[#mot]] and [[#tag]] to support our design
+    choice.
 
 ## R1 &rarr; R2 ## {#R2}
 
