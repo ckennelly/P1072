@@ -559,6 +559,30 @@ boost/container/vector.hpp</a>:
 These optimizations are also supported in Boost Container's `small_vector`,
 `static_vector`, `deque`, `stable_vector`, and `string`.
 
+## Thrust ## {#thrust}
+
+The Thrust library has "a RAII-type `thrust::detail::temporary_array`
+which has a vector-like interface and a constructor with a tag
+parameter that indicates its elements should not be initialized." -
+[Bryce Adelstein Lelbach].
+
+
+E.g. <a
+href="https://github.com/thrust/thrust/blob/417d78471dadefa3087ff274e64f43ce74acfd3d/thrust/detail/temporary_array.inl#L47">thrust/thrust/detail/temporary_array.inl</a>:
+
+<xmp>
+template<typename T, typename TemporaryArray, typename Size>
+__host__ __device__
+typename thrust::detail::disable_if<
+  avoid_initialization<T>::value
+>::type
+  construct_values(TemporaryArray &a,
+                   Size n)
+{
+  a.default_construct_n(a.begin(), n);
+} // end construct_values()
+</xmp>
+
 # Wording # {#wording}
 
 Wording is relative to [[N4791]].
