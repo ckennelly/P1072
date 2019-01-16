@@ -82,7 +82,7 @@ void resize_default_init(size_type n);
 </blockquote>
 
 In order to enable `resize_default_init`, this proposal makes it
-implementation defined whether `basic_string` uses
+implementation-defined whether `basic_string` uses
 `allocator_traits::construct` and `allocator_traits::destroy` to
 construct and destroy the "char-like objects" that it controls. See
 [[#allocator]] and [[#wording]] below for more details.
@@ -281,7 +281,7 @@ Benefits:
 Drawbacks:
 
 * Feature creep / complexity — A tag type invites generalizing for all
-  allocator aware container types. We agree that this is desirable and
+  allocator-aware container types. We agree that this is desirable and
   even has implementation experience in Boost. However default
   initialization is not enough. There is also "implicit construction"
   (see [[P1010R1]], [[P0593R2]]) and "relocation" (see [[P1144R0]],
@@ -335,7 +335,7 @@ Along the way, this proposal clarifies ambiguous language in
   [**container.requirements.general**].
 
 * Not attempting to mention other "components" in
-  [**container.requirements.general**]. The other allocator aware
+  [**container.requirements.general**]. The other allocator-aware
   containers (just `basic_string` and `regex::match_results`?) can
   independently state that they are "allocator-aware" in their own
   clauses.
@@ -343,7 +343,7 @@ Along the way, this proposal clarifies ambiguous language in
 libstdc++ and msvc allow strings of non-trivial type. That might force
 those libraries to continue to support `construct` and `destroy` as
 "extensions". On the other hand, libc++ disallows non-trivial
-`charT`s, so any such extensions are non-portable.. See [godbolt.org](
+`charT`s, so any such extensions are non-portable. See [godbolt.org](
 https://godbolt.org/#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAKxAEZSAbAQwDtRkBSAJgCFufSAZ1QBXYskwgA5NwDMeFsgYisAag6yAwoILEFwDdg4AGAIInTO9CBAAjJoLzIA%2Bjr1sN2gtZBv9h1QAzVFQIAEp1AHY%2BM1U41Ssbe0cXPw8tRN9df1lsBI0Y03iEgDpiTEcAL0wILjCCi2LygjEWfNlCjkiAEQspMMZpAFYpUhZpY1HUaU1%2BfgTRcUx1LllaUYIJ/oGAaxBVksiATgAOABYzgDYuE64rs9pLy8GpM9HxqUnSaalRwRBjKRNp9%2BqQ4LAYIgUKgALYABzwDEwZAoEDQ8MRyJQzDYzl0IhYO1IgURBGR/wgti2pFsCiYxAAntJ1qR0TDMCwCAB5FgMJkg0hYGGsYBI6n4crIAh4ABuFWpmAAHphkCIyczRgoyQwNUC9DCtgMcew5rxGHhbP9IANUHDpagWP8pABaKwMC0abru2ycXj8P6LCR0I3Dd7Un6Kk6XZ2XM6qJQi1QQfGEiIQXCEEgrNakVSaWEIpHEbO0CKzP28DaG3YgIZHEpHSKRO60c6RIa0SLGWRDF5vUgGoaAj5fH5/AFAw1gyEQJCiAhwtXkSjowtY%2BiYfBEYh0UgAd2ITDhGpDUhGY3D0jktFUe8ICFUkejsfjxqTKZ2YSrILCAwQmCYLAd3CPtRkHYdL1%2BIQJ2BSZf1IPYDi4Otbi4LgjlkM4hlkI4zheWQwwFMdJx/ad4HBKFV0xFEVwLaiQGAQQWCPQQEFQAhiVJclKCpAVaWYxldTZDluV5fkviFEUxQFCUVWlOUnS%2BJUVTVSQpBZLVMB1dSNn1KdjRQU0BG9K0QNte1HWkAMxCDUsXnPEcpmkJ8YzjYBkGQd9iAJT8kwzbcS1zfMMSLbM6jzIzvzgv8AKAygazuEoTlodDaDS44TiOdCuFAgdawgoirOgwFYNBCjZxAedFw41EqKLfZSE3TMd3oA8jxPezCNHK9Vi4W970fKNXNUdzPOTbzUyi7ZSH/QCsRA7T%2B3Ai9Cqg/4SurBD9iGEorijG5uzOSIjtjfCuqcqDSoGcqZyQOrkWXNE6PqqQZWQOE4WcGVaCOZxaCGZwIBlQQ/oBk4wmcRVY1GEkGDJYgKV4r5%2BPpfkWWEzkeT5cVMGFNhpIkvBJXk%2BUBWU1V1R08hOS03VsgNUiDN9PgzRM%2BAbTtPAHSdaylmDTqVu6qQobjGFBDe1Rvvrf6kwANQAZVUf6krTfys2vILnuRbNZDLSKSOimbYvmmtaDOEocJOYxjCGS5ZG7S4TiGVZcuWxzviK9aDbK27KrVarHvundZEarcSF3Nrjx008HMguRZH6ggHxF1QxYlqWShliAFaVnbwam%2BDZrihbpCW/LBYu8cNp/BLIl2yI1m7WRMtkTDkOebSCIrj3Ls27SuHOnuC4GOUEa58YziAA%3D%3D%3D).
 
 ## Bikeshedding ## {#bikeshed}
@@ -610,8 +610,8 @@ and `destroy`.
 <ins>
 
 4. `basic_string` is an allocator-aware container as described in
-  [container.requirements.general], except that it is implementation
-  defined whether `allocator_traits::construct` and
+  [container.requirements.general], except that it is
+  implementation-defined whether `allocator_traits::construct` and
   `allocator_traits::destroy` are used to construct and destroy the
   contained `charT` objects.
 
