@@ -168,7 +168,7 @@ std::string CompressWrapper(std::string_view input) {
 
     // SUB-OPTIMAL: Extra initialization
     compressed.resize(size);
-    int ret = compress(compressed.begin(), &size, input.data(), input.size());
+    int ret = compress(&*compressed.begin(), &size, input.data(), input.size());
     if (ret != OK) {
       throw ...some error...
     }
