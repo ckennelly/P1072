@@ -174,7 +174,7 @@ std::string CompressWrapper(std::string_view input) {
     }
 
     // Set actual size.
-    compressed.resize(size);
+    compressed.erase(size);
     return compressed;
 }
 </xmp>
@@ -200,7 +200,7 @@ std::string CompressWrapper(std::string_view input) {
     }
 
     // Set actual size.
-    compressed.resize(size);
+    compressed.erase(size);
     return compressed;
 }
 </xmp>
