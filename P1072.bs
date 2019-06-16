@@ -6,7 +6,7 @@ Group: WG21
 Revision: 4
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2019-02-24
+Date: 2019-06-16
 Audience: LEWG
 Audience: LWG
 Audience: SG16
@@ -67,15 +67,21 @@ This proposal addresses the problem by adding
 <blockquote>
 <ins>
 <pre highlight="">
-void resize_default_init(size_type n);
+template<typename Operation>
+void resize_default_init(size_type n, Operation op);
 </pre>
 <ol start="8">
+<li>*Throws:* `out_of_range` if `op(data(), n) > n`.
 <li>*Effects:* Alters the value of `*this` as follows:
      <ol>
      <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
      <li>— If `n > size()`, appends `n - size()` default-initialized
          elements.</li>
      </ol>
+     Invokes `erase(op(data(), n))`.
+</li>
+<li>*Remarks:* Let `m = op(data(), n)`.  `op` shall value-initialize the values
+    stored in the character array `[data(), data()+m)`.
 </li>
 </ol>
 </ins>
@@ -89,8 +95,9 @@ construct and destroy the "char-like objects" that it controls. See
 
 # Implementation # {#impl}
 
-`libc++` includes a private implementation of this proposal and uses
-it to avoid a dynamic allocation in `std::filesystem` [[LIBC++]].
+`libc++` includes a private implementation of this proposal (based on an
+earlier revision) and uses it to avoid a dynamic allocation in
+`std::filesystem` [[LIBC++]].
 
 # Examples # {#examples}
 
@@ -139,10 +146,11 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 
    const auto step = pattern.size();
    // GOOD: No initialization
-   ret.resize_default_init(step * count);
-   for (size_t i = 0; i < count; i++) {
-     // GOOD: No bookkeeping
-     memcpy(ret.data() + i * step, pattern.data(), step);
+   ret.resize_default_init(step * count, [&](char* buf, size_t n) {
+       for (size_t i = 0; i < count; i++) {
+         // GOOD: No bookkeeping
+         memcpy(buf + i * step, pattern.data(), step);
+       }
    }
 
    return ret;
@@ -193,14 +201,13 @@ std::string CompressWrapper(std::string_view input) {
     size_t size = compressBound(input.size());
 
     // GOOD: No initialization
-    compressed.resize_default_init(size);
-    int ret = compress(compressed.begin(), &size, input.data(), input.size());
-    if (ret != OK) {
-      throw ...some error...
+    compressed.resize_default_init(size, [&](char* buf, size_t n) {
+        int ret = compress(buf, &size, input.data(), input.size());
+        if (ret != OK) {
+          throw ...some error...
+        }
+        return n;
     }
-
-    // Set actual size.
-    compressed.erase(size);
     return compressed;
 }
 </xmp>
@@ -210,12 +217,8 @@ std::string CompressWrapper(std::string_view input) {
 ## Method vs. Alternatives
 
 `resize_default_init` exposes users to UB if they read indeterminate
-([**basic.indet**] (6.6.4)) values in the string. Despite this
-foot-gun, `resize_default_init` is appealing because:
-
-* It is simple.
-
-* It matches existing practice. See [[#google]], [[#std-proposals]].
+([**basic.indet**] (6.6.4)) values in the string buffer passed to `op`. Despite
+this foot-gun, `resize_default_init` is appealing because:
 
 * Uninitialized buffers are not uncommon in C++. See for example `new
   T[20]` or the recently adopted `make_unique_default_init`.
@@ -236,70 +239,19 @@ Method on string vs storage_buffer type:
 </table>
 </blockquote>
 
-Several other alternatives were discussed at [[SAN]] and on the reflector.
-Please see [[#alternatives]] below for more details.
+During the [[KOA]] Meeting, LEWG expressed a preference for not weakening
+`basic_string`'s invariants after `resize_default_init` returns.  Under this
+revision:
 
+*  A default-initialized buffer is *only* accessible to `op`.
+*  Under penalty of undefined behavior, `op` must value-initialize the
+   resulting buffer.  The uninitialized portion (`[data()+m, data()+n)`) above
+   is erased and inaccessible to the program without further violation of class
+   invariants.
+*  This proposal follows the "lambda" option discussed in [[SAN]].
 
-## Tag Type ## {#tag}
-
-At the [[SAN]] Meeting, LEWG showed support for a tag argument type:
-
-<blockquote>
-Approval (vote for as many as you find acceptable)
-<table>
-<tr><td>13 </td><td>**Go back to resize_uninitialized**</td></tr>
-<tr><td>15 </td><td>**Do tag type (default_initialize) for c'tor / resize()**</td></tr>
-<tr><td>12 </td><td>**Continue with storage_buffer (as per R2 of this paper)**</td></tr>
-<tr><td> 7 </td><td>**Crack open with a lambda**</td></tr>
-<tr><td> 7 </td><td>**RAII separate type**</td></tr>
-</table>
-</blockquote>
-
-For example:
-<xmp>
-std::string GeneratePattern(const std::string& pattern, size_t count) {
-   const auto step = pattern.size();
-
-   // GOOD:  No initialization
-   std::string ret(step * count, std::string::default_init);
-   for (size_t i = 0; i < count; i++) {
-     // GOOD: No bookkeeping
-     memcpy(ret.data() + i * step, pattern.data(), step);
-   }
-
-   return ret;
-}
-</xmp>
-
-Benefits:
-
-* A constructor that takes a tag type simplifies some use cases, like
-  the example above.
-
-* Matches existing practice in Boost. See [[#boost]].
-
-Drawbacks:
-
-* Feature creep / complexity — A tag type invites generalizing for all
-  allocator-aware container types. We agree that this is desirable and
-  even has implementation experience in Boost. However default
-  initialization is not enough. There is also "implicit construction"
-  (see [[P1010R1]], [[P0593R2]]) and "relocation" (see [[P1144R0]],
-  [[P1029R1]]). Neither of these features are yet in the language. It
-  is too early to generalize. Note that the second poll quoted in
-  [[#mot]] shows support for solving this problem for `[basic_]string`
-  but not `vector`.
-
-* In reflector discussion of `make_unique_default_init` [[Zero]],
-  there was a preference for avoiding tag types. The standard library
-  has `copy_backward`, not `copy` with a tag, and `count_if`, rather
-  than `count` with a predicate.
-
-Conclusion:
-
-LEWG should explore tags for allocator-aware containers, but that work
-should not block near-term enablement of efficient [std::]string
-builders.
+Several other alternatives were discussed at [[SAN]], [[KOA]], and on the
+reflector.  Please see [[#alternatives]] below for more details.
 
 ## Allocator Interaction ## {#allocator}
 
@@ -363,6 +315,110 @@ What do we want to call this method?
   `uninitialized_copy`; so this would be an overloading of the term.
 
 # Alternatives Considered # {#alternatives}
+
+## Tag Type ## {#tag}
+
+At the [[SAN]] Meeting, LEWG showed support for a tag argument type:
+
+<blockquote>
+Approval (vote for as many as you find acceptable)
+<table>
+<tr><td>13 </td><td>**Go back to resize_uninitialized**</td></tr>
+<tr><td>15 </td><td>**Do tag type (default_initialize) for c'tor / resize()**</td></tr>
+<tr><td>12 </td><td>**Continue with storage_buffer (as per R2 of this paper)**</td></tr>
+<tr><td> 7 </td><td>**Crack open with a lambda**</td></tr>
+<tr><td> 7 </td><td>**RAII separate type**</td></tr>
+</table>
+</blockquote>
+
+For example:
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   const auto step = pattern.size();
+
+   // GOOD:  No initialization
+   std::string ret(step * count, std::string::default_init);
+   for (size_t i = 0; i < count; i++) {
+     // GOOD: No bookkeeping
+     memcpy(ret.data() + i * step, pattern.data(), step);
+   }
+
+   return ret;
+}
+</xmp>
+
+Benefits:
+
+* A constructor that takes a tag type simplifies some use cases, like
+  the example above.
+
+* Matches existing practice in Boost. See [[#boost]].
+
+Drawbacks:
+
+* Feature creep / complexity — A tag type invites generalizing for all
+  allocator-aware container types. We agree that this is desirable and
+  even has implementation experience in Boost. However default
+  initialization is not enough. There is also "implicit construction"
+  (see [[P1010R1]], [[P0593R2]]) and "relocation" (see [[P1144R0]],
+  [[P1029R1]]). Neither of these features are yet in the language. It
+  is too early to generalize. Note that the second poll quoted in
+  [[#mot]] shows support for solving this problem for `[basic_]string`
+  but not `vector`.
+
+* In reflector discussion of `make_unique_default_init` [[Zero]],
+  there was a preference for avoiding tag types. The standard library
+  has `copy_backward`, not `copy` with a tag, and `count_if`, rather
+  than `count` with a predicate.
+
+Conclusion:
+
+LEWG should explore tags for allocator-aware containers, but that work
+should not block near-term enablement of efficient [std::]string
+builders.
+
+## Non-Lambda Approach ## {#nonlambda}
+
+In [[P1072R0]] and [[P1072R3]] of this proposal, the authors considered a
+method `resize_default_init` / `resize_uninitialized` which left a
+default-initialized buffer accessible to users of the `basic_string` instance
+after the method returned.  This method was rejected in [[KOA]], due to the
+weakened class invariants.
+
+For illustration:
+
+<xmp>
+extern "C" {
+  int compress(void* out, size_t* out_size, const void* in, size_t in_size);
+  size_t compressBound(size_t bound);
+}
+
+std::string CompressWrapper(std::string_view input) {
+    std::string compressed;
+    // Compute upper limit of compressed input.
+    size_t size = compressBound(input.size());
+
+    // GOOD: No initialization
+    compressed.resize_default_init(size);
+    int ret = compress(&*compressed.begin(), &size, input.data(), input.size());
+    if (ret != OK) {
+      throw ...some error...
+    }
+
+    // Suppose size is the value of size before the call to compress and size'
+    // is the value of size after the call to compress.
+    //
+    // If size' < size, then:
+    //   std::cout << compressed[size' + 1]
+    // ...triggers a read of uninitialized data.
+
+    // Set actual size.
+    compressed.erase(size);
+    return compressed;
+}
+</xmp>
+
+
 
 ## Standalone Type:  `storage_buffer` ## {#buffer}
 
@@ -603,7 +659,8 @@ In [**basic.string**] [20.3.2], in the synopsis, add
     size_type max_size() const noexcept;
     void resize(size_type n, charT c);
     void resize(size_type n);
-    <ins>void resize_default_init(size_type n);</ins>
+    <ins>template<typename Operation>
+    void resize_default_init(size_type n, Operation op);</ins>
     size_type capacity() const noexcept;
     void reserve(size_type res_arg);
     void shrink_to_fit();
@@ -685,6 +742,9 @@ void resize_default_init(size_type n);
          elements.</li>
      </ol>
 </li>
+<li>*Remarks:* Let `m = op(data(), n)`.  `op` shall value-initialize the values
+    stored in the character array `[data(), data()+m)`.
+</li>
 </ol>
 
 </ins>
@@ -739,6 +799,13 @@ We can then simplify p15:
 
 # History # {#history}
 
+## R3 &rarr; R4 ## {#R3}
+
+*   Applied feedback from the [[KOA]] meeting.
+*   Moved to using a callback routine, rather than leaving invariants weakened
+    from the time `resize_default_init` returned until the buffer was
+    value-initialized.
+
 ## R2 &rarr; R3 ## {#R2}
 
 *   Applied Jonathan Wakely's editorial comments on [[#wording]].
@@ -786,6 +853,11 @@ the implmentation.
         "href": "https://github.com/abseil/abseil-cpp",
         "date": "2018-09-22",
         "title": "Abseil"
+    },
+    "KOA": {
+        "href": "http://wiki.edg.com/bin/view/Wg21kona2019/P1072",
+        "date": "2019-02-19",
+        "title": "Kona Meeting Minutes"
     },
     "SAN": {
         "href": "http://wiki.edg.com/bin/view/Wg21sandiego2018/P1072",
