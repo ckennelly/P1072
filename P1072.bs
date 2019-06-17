@@ -80,8 +80,8 @@ void resize_default_init(size_type n, Operation op);
      </ol>
      Invokes `erase(op(data(), n))`.
 </li>
-<li>*Remarks:* Let `m = op(data(), n)`.  `op` shall value-initialize the values
-    stored in the character array `[data(), data()+m)`.
+<li>*Remarks:* Let `m = op(data(), n)`.  `op` shall replace
+    ([**expr.ass**]) values in the range `[data(), data()+m)`.
 </li>
 </ol>
 </ins>
@@ -244,10 +244,10 @@ During the [[KOA]] Meeting, LEWG expressed a preference for not weakening
 revision:
 
 *  A default-initialized buffer is *only* accessible to `op`.
-*  Under penalty of undefined behavior, `op` must value-initialize the
-   resulting buffer.  The uninitialized portion (`[data()+m, data()+n)`) above
-   is erased and inaccessible to the program without further violation of class
-   invariants.
+*  Under penalty of undefined behavior, `op` must assign (replace) the
+   values in resulting buffer. The default initialized portion
+   (`[data()+m, data()+n)`) above is erased and inaccessible to the
+   program without further violation of class invariants.
 *  This proposal follows the "lambda" option discussed in [[SAN]].
 
 Several other alternatives were discussed at [[SAN]], [[KOA]], and on the
@@ -742,8 +742,9 @@ void resize_default_init(size_type n);
          elements.</li>
      </ol>
 </li>
-<li>*Remarks:* Let `m = op(data(), n)`.  `op` shall value-initialize the values
-    stored in the character array `[data(), data()+m)`.
+<li>*Remarks:* Let `m = op(data(), n)`. `op` shall replace
+    ([**expr.ass**]) the values stored in the character array
+    `[data(), data()+m)`.
 </li>
 </ol>
 
@@ -802,9 +803,9 @@ We can then simplify p15:
 ## R3 &rarr; R4 ## {#R3}
 
 *   Applied feedback from the [[KOA]] meeting.
-*   Moved to using a callback routine, rather than leaving invariants weakened
-    from the time `resize_default_init` returned until the buffer was
-    value-initialized.
+*   Moved to using a callback routine, rather than leaving invariants
+    weakened from the time `resize_default_init` returned until values
+    in the buffer were assigned.
 
 ## R2 &rarr; R3 ## {#R2}
 
