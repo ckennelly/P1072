@@ -729,7 +729,7 @@ void resize_default_init(size_type n, Operation op);
 
 <ol start="8">
 
-<li><ins>*Effects:* Alters the value of `*this` as follows:</ins>
+<li><ins>*Effects:*  Let `o = size()`.  Alters the value of `*this` as follows:</ins>
      <ol>
      <li><ins>— If `n <= size()`, erases the last `size() - n`
      elements.</ins></li>
@@ -739,7 +739,7 @@ void resize_default_init(size_type n, Operation op);
 </li>
 <li><ins>*Remarks:* Let `m = op(data(), n)`. `op` shall replace
     ([**expr.ass**]) the values stored in the character array
-    `[data(), data()+m)`.</ins></li>
+    `[data()+o, data()+m)`.</ins></li>
 </ol>
 
 <pre highlight="">
