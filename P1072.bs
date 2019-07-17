@@ -1,17 +1,17 @@
 <pre class='metadata'>
 Title: basic_string::resize_default_init
-Status: P
+Status: D
 Shortname: P1072
 Group: WG21
-Revision: 4
+Revision: 5
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2019-06-16
+Date: 2019-07-17
 Audience: LEWG
 Audience: LWG
 Audience: SG16
 Abstract: Allow access to default-initialized elements of basic_string.
-URL: http://wg21.link/P1072R4
+URL: http://wg21.link/D1072R5
 Markup Shorthands: markdown yes
 Default Highlight: C++
 </pre>
