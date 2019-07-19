@@ -1663,8 +1663,9 @@ void resize_default_init(size_type n, Operation op);
 implementation-defined whether <code class="highlight"><c- n>basic_string</c-></code> uses <code class="highlight"><c- n>allocator_traits</c-><c- o>::</c-><c- n>construct</c-></code> and <code class="highlight"><c- n>allocator_traits</c-><c- o>::</c-><c- n>destroy</c-></code> to
 construct and destroy the "char-like objects" that it controls. See <a href="#allocator">§ 5.2 Allocator Interaction</a> and <a href="#wording">§ 8 Wording</a> below for more details.</p>
    <h2 class="heading settled" data-level="3" id="impl"><span class="secno">3. </span><span class="content">Implementation</span><a class="self-link" href="#impl"></a></h2>
-   <p><code class="highlight"><c- n>libc</c-><c- o>++</c-></code> includes a private implementation of this proposal (based on an
-earlier revision) and uses it to avoid a dynamic allocation in <code class="highlight"><c- n>std</c-><c- o>::</c-><c- n>filesystem</c-></code> <a data-link-type="biblio" href="#biblio-libc">[LIBC++]</a>.</p>
+   <p><code class="highlight"><c- n>libc</c-><c- o>++</c-></code> includes a private implementation of a prior version of this
+proposal (based on an earlier revision) and uses it to avoid a dynamic
+allocation in <code class="highlight"><c- n>std</c-><c- o>::</c-><c- n>filesystem</c-></code> <a data-link-type="biblio" href="#biblio-libc">[LIBC++]</a>.</p>
    <h2 class="heading settled" data-level="4" id="examples"><span class="secno">4. </span><span class="content">Examples</span><a class="self-link" href="#examples"></a></h2>
    <h3 class="heading settled" data-level="4.1" id="pattern"><span class="secno">4.1. </span><span class="content">Stamping a Pattern</span><a class="self-link" href="#pattern"></a></h3>
    <p>Consider writing a pattern several times into a string:</p>
@@ -1709,7 +1710,8 @@ avoiding the bookkeeping in <code class="highlight"><c- n>append</c-></code> at 
          <c- c1>// GOOD: No bookkeeping</c->
          <c- n>memcpy</c-><c- p>(</c-><c- n>buf</c-> <c- o>+</c-> <c- n>i</c-> <c- o>*</c-> <c- n>step</c-><c- p>,</c-> <c- n>pattern</c-><c- p>.</c-><c- n>data</c-><c- p>(),</c-> <c- n>step</c-><c- p>);</c->
        <c- p>}</c->
-   <c- p>}</c->
+       <c- k>return</c-> <c- n>step</c-> <c- o>*</c-> <c- n>count</c-><c- p>;</c->
+   <c- p>});</c->
 
    <c- k>return</c-> <c- n>ret</c-><c- p>;</c->
 <c- p>}</c->

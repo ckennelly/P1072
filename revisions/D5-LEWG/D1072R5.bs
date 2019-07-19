@@ -93,9 +93,9 @@ construct and destroy the "char-like objects" that it controls. See
 
 # Implementation # {#impl}
 
-`libc++` includes a private implementation of this proposal (based on an
-earlier revision) and uses it to avoid a dynamic allocation in
-`std::filesystem` [[LIBC++]].
+`libc++` includes a private implementation of a prior version of this
+proposal (based on an earlier revision) and uses it to avoid a dynamic
+allocation in `std::filesystem` [[LIBC++]].
 
 # Examples # {#examples}
 
@@ -149,7 +149,8 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
          // GOOD: No bookkeeping
          memcpy(buf + i * step, pattern.data(), step);
        }
-   }
+       return step * count;
+   });
 
    return ret;
 }
