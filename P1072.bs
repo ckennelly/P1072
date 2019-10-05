@@ -737,6 +737,7 @@ void resize_default_init(size_type n, Operation op);
      <li><ins>— If `n > size()`, appends `n - size()`
          default-initialized elements.</ins></li>
      </ol>
+     <ins>Invokes `erase(op(data(), n))`.</ins>
 </li>
 <li><ins>*Remarks:* Let `m = op(data(), n)`. `op` shall replace
     ([**expr.ass**]) the values stored in the character array
