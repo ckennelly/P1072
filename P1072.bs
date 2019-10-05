@@ -793,6 +793,18 @@ We can then simplify p15:
 
 # History # {#history}
 
+## R4 &rarr; R5 ## {#R4}
+
+A draft of this revision was presented to LEWG at the [[Cologne]] meeting.
+
+<blockquote>
+Forward to LWG for C++23
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>10</td><td>5</td><td>1</td><td>0</td><td>0</td></tr>
+</table>
+</blockquote>
+
 ## R3 &rarr; R4 ## {#R3}
 
 *   Applied feedback from the [[KOA]] meeting.
@@ -847,6 +859,10 @@ the implmentation.
         "href": "https://github.com/abseil/abseil-cpp",
         "date": "2018-09-22",
         "title": "Abseil"
+    },
+    "Cologne": {
+        "href": "http://wiki.edg.com/bin/view/Wg21cologne2019/P1072",
+        "date": "2019-07-19"
     },
     "KOA": {
         "href": "http://wiki.edg.com/bin/view/Wg21kona2019/P1072",
