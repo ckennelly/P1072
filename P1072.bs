@@ -789,7 +789,9 @@ We can then simplify p15:
 
 # Questions for LEWG # {#questions}
 
-1.  Is LEWG satisfied with this approach?
+1.  Should `op` returning a size larger than requested initially throw or result in UB?
+
+2.  Should `resize_default_init` be `constexpr`?
 
 # History # {#history}
 
