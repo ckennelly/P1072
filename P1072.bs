@@ -156,6 +156,10 @@ void resize_default_init(size_type n, Operation op);
 
     <p>`op` shall not allow its first argument to be accessible
     after it returns.</p>
+
+    <p>If `op` modifies the values in `[0, o)` and then eiher `op`
+    throws or `m > n`, the modifications may be visible. Otherwise,
+    the strong exception guarantee holds.</p>
 </li>
 </ol>
 </blockquote>
