@@ -70,17 +70,35 @@ template&lt;typename Operation&gt;
 void resize_default_init(size_type n, Operation op);
 </pre>
 <ol start="8">
-<li>*Throws:* `out_of_range` if `op(data(), n) > n`.
-<li>*Effects:* Alters the value of `*this` as follows:
+
+<li>
+     <p>*Effects:* Let `o = size()`. Alters the value of `*this`
+     as follows:</p>
+
      <ol>
-     <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
-     <li>— If `n > size()`, appends `n - size()` default-initialized
-         elements.</li>
+     <li>— If `n <= size()`, erases the last `size() - n`
+     elements.</li>
+     <li>— If `n > size()`, appends `n - size()`
+         default-initialized elements.</li>
      </ol>
-     Invokes `erase(op(data(), n))`.
+     Invokes `erase(begin() + op(data(), n), end())`.
 </li>
-<li>*Remarks:* Let `m = op(data(), n)`.  `op` shall replace
-    ([**expr.ass**]) values in the range `[data(), data()+m)`.
+<li>
+    <p>*Remarks:* Let `m = op(data(), n)`.</p>
+
+    <p>`m <= n` otherwise the behavior is undefined.</p>
+
+    <p>If `m > o`, `op` shall replace ([**expr.ass**]) the values
+    stored in the character array `[data()+o, data()+m)`. Until
+    replaced, the values may be indeterminate [**basic.indet**]
+    (6.6.4). [ *Note:* `*(data()+o)` may not be `CharT()`. - *end note*
+    ]</p>
+
+    <p>When `op` is called `*this` is in an unspecified state. `op`
+    shall not bind or in any way access `*this`</p>
+
+    <p>`op` shall not allow its first argument to be accessible
+    after it returns.</p>
 </li>
 </ol>
 </blockquote>
@@ -90,6 +108,57 @@ implementation-defined whether `basic_string` uses
 `allocator_traits::construct` and `allocator_traits::destroy` to
 construct and destroy the "char-like objects" that it controls. See
 [[#allocator]] and [[#wording]] below for more details.
+
+Note that this is not currently proposed as `constexpr` member
+function template, however, if that is possible it is desirable.
+
+# Proposal with Exceptions # {#exceptional}
+
+The version of this proposal seen by LEWG in [[Cologne]] throws
+`std::range_error` when `op` returns a value greater than `n`. The
+authors now recommend UB as proposed above, but the exception-full
+proposal would be:
+
+<blockquote>
+<pre highlight="">
+template&lt;typename Operation&gt;
+void resize_default_init(size_type n, Operation op);
+</pre>
+<ol start="8">
+
+<li>
+     <p>*Effects:* Let `o = size()`. Alters the value of `*this`
+     as follows:</p>
+
+     <ol>
+     <li>— If `n <= size()`, erases the last `size() - n`
+     elements.</li>
+     <li>— If `n > size()`, appends `n - size()`
+         default-initialized elements.</li>
+     </ol>
+
+     Invokes `erase(op(data(), n))`.
+</li>
+<li>
+    <p>*Throws:* `std::range_error` if `m > n`.
+
+<li>
+    <p>*Remarks:* Let `m = op(data(), n)`.</p>
+
+    <p>If `m > o`, `op` shall replace ([**expr.ass**]) the values
+    stored in the character array `[data()+o, data()+m)`. Until
+    replaced, the values may be indeterminate [**basic.indet**]
+    (6.6.4). [ *Note:* `*(data()+o)` may not be `CharT()`. - *end
+    note* ]</p>
+
+    <p>When `op` is called `*this` is in an unspecified state. `op`
+    shall not bind or in any way access `*this`</p>
+
+    <p>`op` shall not allow its first argument to be accessible
+    after it returns.</p>
+</li>
+</ol>
+</blockquote>
 
 # Implementation # {#impl}
 
@@ -753,7 +822,7 @@ void resize_default_init(size_type n, Operation op);
     (6.6.4). [ *Note:* `*(data() + o)` may not be `CharT()`. - *end
     note* ]</ins></p>
 
-    <p><ins>When `op` is called *this is in an unspecified state. `op`
+    <p><ins>When `op` is called `*this` is in an unspecified state. `op`
     shall not bind or in any way access `*this`</ins></p>
 
     <p><ins>`op` shall not allow its first argument to be accessible
