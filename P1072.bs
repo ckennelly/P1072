@@ -640,35 +640,35 @@ typename thrust::detail::disable_if<
 
 # Wording # {#wording}
 
-Wording is relative to [[N4791]].
+Wording is relative to [[N4830]].
 
 Motivation for some of these edits can be found in [[#allocator]].
 
 ## [<strong>basic.string</strong>] ## {#basic.string}
 
-In [**basic.string**] [20.3.2], in the synopsis, add
+In [**basic.string**] [21.3.2], in the synopsis, add
 `resize_default_init`:
 
 <blockquote>
 <pre highlight="">
 ...
-    // <em>20.3.2.4</em>, capacity
-    size_type size() const noexcept;
-    size_type length() const noexcept;
-    size_type max_size() const noexcept;
-    void resize(size_type n, charT c);
-    void resize(size_type n);
+    // <em>21.3.2.4</em>, capacity
+    constexpr size_type size() const noexcept;
+    constexpr size_type length() const noexcept;
+    constexpr size_type max_size() const noexcept;
+    constexpr void resize(size_type n, charT c);
+    constexpr void resize(size_type n);
     <ins>template&lt;typename Operation&gt;</ins>
     <ins>void resize_default_init(size_type n, Operation op);</ins>
-    size_type capacity() const noexcept;
-    void reserve(size_type res_arg);
-    void shrink_to_fit();
-    void clear() noexcept;
-    [[nodiscard]] bool empty() const noexcept;
+    constexpr size_type capacity() const noexcept;
+    constexpr void reserve(size_type res_arg);
+    constexpr void shrink_to_fit();
+    constexpr void clear() noexcept;
+    [[nodiscard]] constexpr bool empty() const noexcept;
 </pre>
 </blockquote>
 
-In [**string.require**] [20.3.2.1] clarify that `basic_string` is an
+In [**string.require**] [21.3.2.1] clarify that `basic_string` is an
 allocator-aware container, and then add an exception for `construct`
 and `destroy`.
 
@@ -699,11 +699,11 @@ and `destroy`.
 
 </blockquote>
 
-In [**string.capacity**] [20.3.2.4]:
+In [**string.capacity**] [21.3.2.4]:
 
 <blockquote>
 <pre highlight="">
-void resize(size_type n, charT c);
+constexpr void resize(size_type n, charT c);
 </pre>
 
 <ol start="6">
@@ -717,7 +717,7 @@ void resize(size_type n, charT c);
 </ol>
 
 <pre highlight="">
-void resize(size_type n);
+constexpr void resize(size_type n);
 </pre>
 <ol start="7">
 <li>*Effects:* Equivalent to `resize(n, charT())`.</li>
@@ -730,46 +730,67 @@ void resize_default_init(size_type n, Operation op);
 
 <ol start="8">
 
-<li><ins>*Effects:*  Let `o = size()`.  Alters the value of `*this` as follows:</ins>
+<li>
+     <p><ins>*Effects:* Let `o = size()`. Alters the value of `*this`
+     as follows:</ins></p>
+
      <ol>
      <li><ins>— If `n <= size()`, erases the last `size() - n`
      elements.</ins></li>
      <li><ins>— If `n > size()`, appends `n - size()`
          default-initialized elements.</ins></li>
      </ol>
-     <ins>Invokes `erase(op(data(), n))`.</ins>
+     <ins>Invokes `erase(begin() + op(data(), n), end())`.</ins>
 </li>
-<li><ins>*Remarks:* Let `m = op(data(), n)`. `op` shall replace
-    ([**expr.ass**]) the values stored in the character array
-    `[data()+o, data()+m)`.</ins></li>
+<li>
+    <p><ins>*Remarks:* Let `m = op(data(), n)`.</ins></p>
+
+    <p><ins>`m <= n` otherwise the behavior is undefined.</ins></p>
+
+    <p><ins>If `m > o`, `op` shall replace ([**expr.ass**]) the values
+    stored in the character array `[data()+o, data()+m)`. Until
+    replaced, the values may be indeterminate [**basic.indet**]
+    (6.6.4). [ *Note:* `*(data() + o)` may not be `CharT()`. - *end
+    note* ]</ins></p>
+
+    <p><ins>When `op` is called *this is in an unspecified state. `op`
+    shall not bind or in any way access `*this`</ins></p>
+
+    <p><ins>`op` shall not allow its first argument to be accessible
+    after it returns.</ins></p>
+</li>
 </ol>
 
 <pre highlight="">
-size_type capacity() const noexcept;
+constexpr size_type capacity() const noexcept;
 </pre>
 ...
 </blockquote>
 
 ## [<strong>container.requirements.general</strong>] ## {#container}
 
-In [**container.requirements.general**] [21.2.1] clarify the ambiguous
+In [**container.requirements.general**] [22.2.1] clarify the ambiguous
 "components affected by this subclause" terminology in p3. Just say
 "allocator-aware containers".
 
 <blockquote>
 <ol start="3">
+<li>
 
-<li><ins>All of the containers defined in this Clause except `array`
+    <ins>All of the containers defined in this Clause except `array`
     are allocator-aware containers.</ins> <del> For the components
     affected by this subclause that declare an allocator_type</del>
-    <ins>Objects</ins><del>objects</del> stored in <del> these components
-    </del> <ins> allocator-aware containers, unless otherwise specified, </ins>
-    shall be constructed using the function
-    `allocator_traits<allocator_type>::rebind_traits<U>::construct` and
-    destroyed using the function
-    `allocator_traits<allocator_type>::rebind_traits<U>::destroy` (19.10.9.2).
-    </li>
+    <ins>Objects</ins><del>objects</del> stored in <del> these
+    components </del> <ins> allocator-aware containers, unless
+    otherwise specified, </ins> shall be constructed using the
+    function
+    `allocator_traits<allocator_type>::rebind_traits<U>::construct`
+    and destroyed using the function
+    `allocator_traits<allocator_type>::rebind_traits<U>::destroy`
+    (20.10.9.2), where `U` is either `allocator_type::value_type` or
+    an internal type used by the container. ...
 
+</li>
 </ol>
 </blockquote>
 
@@ -777,11 +798,11 @@ We can then simplify p15:
 <blockquote>
 <ol start="15">
 
-<li><del>All of the containers defined in this Clause and in 20.3.2
+<li><del>All of the containers defined in this Clause and in 21.3.2
     except `array` meet the additional requirements of an
     allocator-aware container, as</del> <ins> Allocator-aware
-    containers meet the additional requirements described in Table
-    67.</ins></li>
+    containers meet the additional requirements</ins> described in
+    Table 75.</li>
 
 </ol>
 </blockquote>
@@ -806,6 +827,9 @@ Forward to LWG for C++23
 <tr><td>10</td><td>5</td><td>1</td><td>0</td><td>0</td></tr>
 </table>
 </blockquote>
+
+*   Rebased on [[N4830]].
+*   Proposed UB instead of `throwing std::range_error`.
 
 ## R3 &rarr; R4 ## {#R3}
 
