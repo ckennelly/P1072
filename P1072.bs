@@ -84,7 +84,9 @@ void resize_default_init(size_type n, Operation op);
      Invokes `erase(begin() + op(data(), n), end())`.
 </li>
 <li>
-    <p>*Remarks:* Let `m = op(data(), n)`.</p>
+    <p>*Remarks:* If `op` throws the behavior is undefined.
+
+    <p>Let `m = op(data(), n)`.</p>
 
     <p>`m <= n` otherwise the behavior is undefined.</p>
 
@@ -159,10 +161,10 @@ void resize_default_init(size_type n, Operation op);
 
     <p>If `op` modifies the values in `[0, o)` and then eiher `op`
     throws or `m > n`, the modifications may be visible. Otherwise,
-    the strong exception guarantee holds.</p>
-</li>
-</ol>
+    the strong exception guarantee holds.</p> </li> </ol>
 </blockquote>
+
+The final Remark is one motivation for preferring UB.
 
 # Implementation # {#impl}
 
@@ -816,7 +818,9 @@ void resize_default_init(size_type n, Operation op);
      <ins>Invokes `erase(begin() + op(data(), n), end())`.</ins>
 </li>
 <li>
-    <p><ins>*Remarks:* Let `m = op(data(), n)`.</ins></p>
+    <p>*Remarks:* If `op` throws the behavior is undefined.
+
+    <p>Let `m = op(data(), n)`.</p>
 
     <p><ins>`m <= n` otherwise the behavior is undefined.</ins></p>
 
