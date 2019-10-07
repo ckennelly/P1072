@@ -862,7 +862,8 @@ the implmentation.
     },
     "Cologne": {
         "href": "http://wiki.edg.com/bin/view/Wg21cologne2019/P1072",
-        "date": "2019-07-19"
+        "date": "2019-07-19",
+        "title": "Cologne Meeting Minutes"
     },
     "KOA": {
         "href": "http://wiki.edg.com/bin/view/Wg21kona2019/P1072",
