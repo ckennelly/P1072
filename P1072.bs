@@ -1,5 +1,5 @@
 <pre class='metadata'>
-Title: basic_string::resize_default_init
+Title: basic_string::resize_and_overwrite
 Status: D
 Shortname: D1072
 Group: WG21
@@ -62,12 +62,12 @@ Willing to solve this for string without solving it for vector
 # Proposal # {#proposal}
 
 This proposal addresses the problem by adding
-`basic_string::resize_default_init`:
+`basic_string::resize_and_overwrite`:
 
 <blockquote>
 <pre highlight="">
 template&lt;typename Operation&gt;
-void resize_default_init(size_type n, Operation op);
+void resize_and_overwrite(size_type n, Operation op);
 </pre>
 <ol start="8">
 
@@ -105,7 +105,7 @@ void resize_default_init(size_type n, Operation op);
 </ol>
 </blockquote>
 
-In order to enable `resize_default_init`, this proposal makes it
+In order to enable `resize_and_overwrite`, this proposal makes it
 implementation-defined whether `basic_string` uses
 `allocator_traits::construct` and `allocator_traits::destroy` to
 construct and destroy the "char-like objects" that it controls. See
@@ -167,7 +167,7 @@ std::string GeneratePattern(const std::string& pattern, size_t count) {
 
    const auto step = pattern.size();
    // GOOD: No initialization
-   ret.resize_default_init(step * count, [&](char* buf, size_t n) {
+   ret.resize_and_overwrite(step * count, [&](char* buf, size_t n) {
        for (size_t i = 0; i < count; i++) {
          // GOOD: No bookkeeping
          memcpy(buf + i * step, pattern.data(), step);
@@ -223,7 +223,7 @@ std::string CompressWrapper(std::string_view input) {
     size_t size = compressBound(input.size());
 
     // GOOD: No initialization
-    compressed.resize_default_init(size, [&](char* buf, size_t n) {
+    compressed.resize_and_overwrite(size, [&](char* buf, size_t n) {
         int ret = compress(buf, &size, input.data(), input.size());
         if (ret != OK) {
           throw ...some error...
@@ -238,9 +238,9 @@ std::string CompressWrapper(std::string_view input) {
 
 ## Method vs. Alternatives
 
-`resize_default_init` exposes users to UB if they read indeterminate
+`resize_and_overwrite` exposes users to UB if they read indeterminate
 ([**basic.indet**] (6.6.4)) values in the string buffer passed to `op`. Despite
-this foot-gun, `resize_default_init` is appealing because:
+this foot-gun, `resize_and_overwrite` is appealing because:
 
 * Uninitialized buffers are not uncommon in C++. See for example `new
   T[20]` or the recently adopted `make_unique_default_init`.
@@ -262,7 +262,7 @@ Method on string vs storage_buffer type:
 </blockquote>
 
 During the [[KOA]] Meeting, LEWG expressed a preference for not weakening
-`basic_string`'s invariants after `resize_default_init` returns.  Under this
+`basic_string`'s invariants after `resize_and_overwrite` returns.  Under this
 revision:
 
 *  A default-initialized buffer is *only* accessible to `op`.
@@ -332,11 +332,15 @@ buffer (already UB).
 
 What do we want to call this method?
 
+* `resize_and_overwrite` (as proposed). This is consistent with
+  `make_unique_for_overwrite` [[P1973R1]].  Unlike the `make_unique` version,
+  this concludes with the buffer being overwritten (as far as `op` specifies),
+  rather than requiring further action be taken.
+
 * `resize_default_init` (as proposed). This is consistent with
-  `make_unique_default_init` [[P1020R1]], adopted in San Diego. Also,
-  specifying default-initialization throws a bone to libraries that
-  have historically allowed non-trivial `charT` types in
-  `basic_string`.
+  `make_unique_default_init` [[P1020R1]], adopted in San Diego.  This name was
+  removed from the working paper subsequently and renaemd
+  `make_unique_for_overwrite`.
 
 * `resize_uninitialized` (as proposed in R0). "Uninitialized" is
   different from "default-initialized", which is what we want to
@@ -678,7 +682,7 @@ Motivation for some of these edits can be found in [[#allocator]].
 ## [<strong>basic.string</strong>] ## {#basic.string}
 
 In [**basic.string**] [21.3.2], in the synopsis, add
-`resize_default_init`:
+`resize_and_overwrite`:
 
 <blockquote>
 <pre highlight="">
@@ -690,7 +694,7 @@ In [**basic.string**] [21.3.2], in the synopsis, add
     constexpr void resize(size_type n, charT c);
     constexpr void resize(size_type n);
     <ins>template&lt;typename Operation&gt;</ins>
-    <ins>void resize_default_init(size_type n, Operation op);</ins>
+    <ins>void resize_and_overwrite(size_type n, Operation op);</ins>
     constexpr size_type capacity() const noexcept;
     constexpr void reserve(size_type res_arg);
     constexpr void shrink_to_fit();
@@ -756,7 +760,7 @@ constexpr void resize(size_type n);
 
 <pre highlight=""><ins>
 template&lt;typename Operation&gt;
-void resize_default_init(size_type n, Operation op);
+void resize_and_overwrite(size_type n, Operation op);
 </ins></pre>
 
 <ol start="8">
@@ -871,6 +875,11 @@ POLL: We want to rename `resize_default_init` for consistency, in a mailing list
 Modifications since R5:
 
 *   Indicated poll outcomes for UB when `op` reports an invalid value.
+*   Renamed to `resize_and_overwrite`.  This is based on naming discussions for
+    `std::make_unique_default_init` being ultimately renamed to
+    `std::make_unique_for_overwrite`, but differs slightly because the memory
+    accessible has been overwritten.  Overwriting the buffer is an integral
+    part of the operation performed.
 
 
 ## R4 &rarr; R5 ## {#R4}
@@ -952,6 +961,10 @@ the implmentation.
         "href": "http://wiki.edg.com/bin/view/Wg21kona2019/P1072",
         "date": "2019-02-19",
         "title": "Kona Meeting Minutes"
+    },
+    "LEWGNovTelecon": {
+    	"href": "https://wiki.edg.com/bin/view/Wg21summer2020/P1072",
+	"date": "2020-11-16",
     },
     "SAN": {
         "href": "http://wiki.edg.com/bin/view/Wg21sandiego2018/P1072",
