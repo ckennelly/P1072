@@ -114,58 +114,6 @@ construct and destroy the "char-like objects" that it controls. See
 Note that this is not currently proposed as `constexpr` member
 function template, however, if that is possible it is desirable.
 
-# Proposal with Exceptions # {#exceptional}
-
-The version of this proposal seen by LEWG in [[Cologne]] throws
-`std::range_error` when `op` returns a value greater than `n`. The
-authors now recommend UB as proposed above, but the exception-full
-proposal would be:
-
-<blockquote>
-<pre highlight="">
-template&lt;typename Operation&gt;
-void resize_default_init(size_type n, Operation op);
-</pre>
-<ol start="8">
-
-<li>
-     <p>*Effects:* Let `o = size()`. Alters the value of `*this`
-     as follows:</p>
-
-     <ol>
-     <li>— If `n <= size()`, erases the last `size() - n`
-     elements.</li>
-     <li>— If `n > size()`, appends `n - size()`
-         default-initialized elements.</li>
-     </ol>
-
-     Invokes `erase(op(data(), n))`.
-</li>
-<li>
-    <p>*Throws:* `std::range_error` if `m > n`.
-
-<li>
-    <p>*Remarks:* Let `m = op(data(), n)`.</p>
-
-    <p>If `m > o`, `op` shall replace ([**expr.ass**]) the values
-    stored in the character array `[data()+o, data()+m)`. Until
-    replaced, the values may be indeterminate [**basic.indet**]
-    (6.6.4). [ *Note:* `*(data()+o)` may not be `CharT()`. - *end
-    note* ]</p>
-
-    <p>When `op` is called `*this` is in an unspecified state. `op`
-    shall not bind or in any way access `*this`</p>
-
-    <p>`op` shall not allow its first argument to be accessible
-    after it returns.</p>
-
-    <p>If `op` modifies the values in `[0, o)` and then eiher `op`
-    throws or `m > n`, the modifications may be visible. Otherwise,
-    the strong exception guarantee holds.</p> </li> </ol>
-</blockquote>
-
-The final Remark is one motivation for preferring UB.
-
 # Implementation # {#impl}
 
 `libc++` includes a private implementation of a prior version of this
@@ -371,6 +319,14 @@ those libraries to continue to support `construct` and `destroy` as
 "extensions". On the other hand, libc++ disallows non-trivial
 `charT`s, so any such extensions are non-portable. See [godbolt.org](
 https://godbolt.org/#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAKxAEZSAbAQwDtRkBSAJgCFufSAZ1QBXYskwgA5NwDMeFsgYisAag6yAwoILEFwDdg4AGAIInTO9CBAAjJoLzIA%2Bjr1sN2gtZBv9h1QAzVFQIAEp1AHY%2BM1U41Ssbe0cXPw8tRN9df1lsBI0Y03iEgDpiTEcAL0wILjCCi2LygjEWfNlCjkiAEQspMMZpAFYpUhZpY1HUaU1%2BfgTRcUx1LllaUYIJ/oGAaxBVksiATgAOABYzgDYuE64rs9pLy8GpM9HxqUnSaalRwRBjKRNp9%2BqQ4LAYIgUKgALYABzwDEwZAoEDQ8MRyJQzDYzl0IhYO1IgURBGR/wgti2pFsCiYxAAntJ1qR0TDMCwCAB5FgMJkg0hYGGsYBI6n4crIAh4ABuFWpmAAHphkCIyczRgoyQwNUC9DCtgMcew5rxGHhbP9IANUHDpagWP8pABaKwMC0abru2ycXj8P6LCR0I3Dd7Un6Kk6XZ2XM6qJQi1QQfGEiIQXCEEgrNakVSaWEIpHEbO0CKzP28DaG3YgIZHEpHSKRO60c6RIa0SLGWRDF5vUgGoaAj5fH5/AFAw1gyEQJCiAhwtXkSjowtY%2BiYfBEYh0UgAd2ITDhGpDUhGY3D0jktFUe8ICFUkejsfjxqTKZ2YSrILCAwQmCYLAd3CPtRkHYdL1%2BIQJ2BSZf1IPYDi4Otbi4LgjlkM4hlkI4zheWQwwFMdJx/ad4HBKFV0xFEVwLaiQGAQQWCPQQEFQAhiVJclKCpAVaWYxldTZDluV5fkviFEUxQFCUVWlOUnS%2BJUVTVSQpBZLVMB1dSNn1KdjRQU0BG9K0QNte1HWkAMxCDUsXnPEcpmkJ8YzjYBkGQd9iAJT8kwzbcS1zfMMSLbM6jzIzvzgv8AKAygazuEoTlodDaDS44TiOdCuFAgdawgoirOgwFYNBCjZxAedFw41EqKLfZSE3TMd3oA8jxPezCNHK9Vi4W970fKNXNUdzPOTbzUyi7ZSH/QCsRA7T%2B3Ai9Cqg/4SurBD9iGEorijG5uzOSIjtjfCuqcqDSoGcqZyQOrkWXNE6PqqQZWQOE4WcGVaCOZxaCGZwIBlQQ/oBk4wmcRVY1GEkGDJYgKV4r5%2BPpfkWWEzkeT5cVMGFNhpIkvBJXk%2BUBWU1V1R08hOS03VsgNUiDN9PgzRM%2BAbTtPAHSdaylmDTqVu6qQobjGFBDe1Rvvrf6kwANQAZVUf6krTfys2vILnuRbNZDLSKSOimbYvmmtaDOEocJOYxjCGS5ZG7S4TiGVZcuWxzviK9aDbK27KrVarHvundZEarcSF3Nrjx008HMguRZH6ggHxF1QxYlqWShliAFaVnbwam%2BDZrihbpCW/LBYu8cNp/BLIl2yI1m7WRMtkTDkOebSCIrj3Ls27SuHOnuC4GOUEa58YziAA%3D%3D%3D).
+
+# Proposal with Exceptions # {#exceptional}
+
+The version of this proposal seen by LEWG in [[Cologne]] throws
+`std::range_error` when `op` returns a value greater than `n`. The authors now
+recommend and LEWG confirmed via [[LEWGNovTelecon]] to use UB.  For the `op` to
+have written greater than `n` bytes, it would have had to overrun the provided
+buffer (already UB).
 
 ## Bikeshedding ## {#bikeshed}
 
@@ -885,13 +841,37 @@ We can then simplify p15:
 </blockquote>
 
 
-# Questions for LEWG # {#questions}
-
-1.  Should `op` returning a size larger than requested initially throw or result in UB?
-
-2.  Should `resize_default_init` be `constexpr`?
-
 # History # {#history}
+
+## R5 &rarr; R6 ## {#R5}
+
+LEWG reviewed R5 via [[LEWGNovTelecon]].
+
+<blockquote>
+POLL: `resize_default_init` should be able to work in constexpr context.
+
+No objection to unanimous consent.  Attendance: 23
+</blockquote>
+
+<blockquote>
+POLL: We prefer UB over throwing an exception if the operation reports it wrote more bytes than it has access to.
+
+No objection to unanimous consent.  Attendance: 21
+</blockquote>
+
+<blockquote>
+POLL: We want to rename `resize_default_init` for consistency, in a mailing list review.
+
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>3</td><td>12</td><td>0</td><td>1</td><td>0</td></tr>
+</table>
+</blockquote>
+
+Modifications since R5:
+
+*   Indicated poll outcomes for UB when `op` reports an invalid value.
+
 
 ## R4 &rarr; R5 ## {#R4}
 
