@@ -67,7 +67,7 @@ This proposal addresses the problem by adding
 <blockquote>
 <pre highlight="">
 template&lt;typename Operation&gt;
-void resize_and_overwrite(size_type n, Operation op);
+constexpr void resize_and_overwrite(size_type n, Operation op);
 </pre>
 <ol start="8">
 
@@ -880,7 +880,7 @@ Modifications since R5:
     `std::make_unique_for_overwrite`, but differs slightly because the memory
     accessible has been overwritten.  Overwriting the buffer is an integral
     part of the operation performed.
-
+*   Applied `constexpr`
 
 ## R4 &rarr; R5 ## {#R4}
 
