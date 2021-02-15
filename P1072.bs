@@ -97,11 +97,11 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
     <p>If `m > o`, `op` shall replace ([**expr.ass**]) the values
     stored in the character array `[data() + o, data() + m)`. Until
     replaced, the values may be indeterminate [**basic.indet**]
-    [*Note:* `*(data() + o)` may not be `CharT()`. - *end
+    [*Note:* `*(data() + o)` may not be `charT()`. - *end
     note*]</p>
 
     <p>`op` may write to `data() + n + 1`. Any value written will be
-    replaced with CharT() after `op` returns. [*Note:* This
+    replaced with `charT()` after `op` returns. [*Note:* This
     facilitiates interoperation with functions that write a trailing
     null. - *end note* ]</p>
 
@@ -800,11 +800,11 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
     <p><ins>If `m > o`, `op` shall replace ([**expr.ass**]) the values
     stored in the character array `[data() + o, data() + m)`. Until
     replaced, the values may be indeterminate [**basic.indet**]
-    [*Note:* `*(data() + o)` may not be `CharT()`. - *end
+    [*Note:* `*(data() + o)` may not be `charT()`. - *end
     note*]</ins></p>
 
     <p><ins>`op` may write to `data() + n + 1`. Any value written will be
-    replaced with CharT() after `op` returns. [*Note:* This
+    replaced with `charT()` after `op` returns. [*Note:* This
     facilitiates interoperation with functions that write a trailing
     null. - *end note* ]</ins></p>
 
