@@ -245,16 +245,6 @@ std::string CompressWrapper(std::string_view input) {
 
 ## Method vs. Alternatives
 
-`resize_and_overwrite` exposes users to UB if they read indeterminate
-([**basic.indet**]) values in the string buffer passed to `op`. Despite
-this foot-gun, `resize_and_overwrite` is appealing because:
-
-*   Uninitialized buffers are not uncommon in C++. See for example `new
-    T[20]` or the recently adopted `make_unique_for_overwrite`.
-
-*   Dynamic analyzers like Memory Sanitizer [[MSan]] and Valgrind
-    [[Valgrind]] can catch uninitialized reads.
-
 During the [[SAN]] Meeting LEWG expressed a preference for
 implementing this functionality as a new method on `basic_string` (as
 proposed in [[P1072R0]]) rather than a standalone "storage buffer"
@@ -326,13 +316,29 @@ those libraries to continue to support `construct` and `destroy` as
 `charT`s, so any such extensions are non-portable. See [godbolt.org](
 https://godbolt.org/#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAKxAEZSAbAQwDtRkBSAJgCFufSAZ1QBXYskwgA5NwDMeFsgYisAag6yAwoILEFwDdg4AGAIInTO9CBAAjJoLzIA%2Bjr1sN2gtZBv9h1QAzVFQIAEp1AHY%2BM1U41Ssbe0cXPw8tRN9df1lsBI0Y03iEgDpiTEcAL0wILjCCi2LygjEWfNlCjkiAEQspMMZpAFYpUhZpY1HUaU1%2BfgTRcUx1LllaUYIJ/oGAaxBVksiATgAOABYzgDYuE64rs9pLy8GpM9HxqUnSaalRwRBjKRNp9%2BqQ4LAYIgUKgALYABzwDEwZAoEDQ8MRyJQzDYzl0IhYO1IgURBGR/wgti2pFsCiYxAAntJ1qR0TDMCwCAB5FgMJkg0hYGGsYBI6n4crIAh4ABuFWpmAAHphkCIyczRgoyQwNUC9DCtgMcew5rxGHhbP9IANUHDpagWP8pABaKwMC0abru2ycXj8P6LCR0I3Dd7Un6Kk6XZ2XM6qJQi1QQfGEiIQXCEEgrNakVSaWEIpHEbO0CKzP28DaG3YgIZHEpHSKRO60c6RIa0SLGWRDF5vUgGoaAj5fH5/AFAw1gyEQJCiAhwtXkSjowtY%2BiYfBEYh0UgAd2ITDhGpDUhGY3D0jktFUe8ICFUkejsfjxqTKZ2YSrILCAwQmCYLAd3CPtRkHYdL1%2BIQJ2BSZf1IPYDi4Otbi4LgjlkM4hlkI4zheWQwwFMdJx/ad4HBKFV0xFEVwLaiQGAQQWCPQQEFQAhiVJclKCpAVaWYxldTZDluV5fkviFEUxQFCUVWlOUnS%2BJUVTVSQpBZLVMB1dSNn1KdjRQU0BG9K0QNte1HWkAMxCDUsXnPEcpmkJ8YzjYBkGQd9iAJT8kwzbcS1zfMMSLbM6jzIzvzgv8AKAygazuEoTlodDaDS44TiOdCuFAgdawgoirOgwFYNBCjZxAedFw41EqKLfZSE3TMd3oA8jxPezCNHK9Vi4W970fKNXNUdzPOTbzUyi7ZSH/QCsRA7T%2B3Ai9Cqg/4SurBD9iGEorijG5uzOSIjtjfCuqcqDSoGcqZyQOrkWXNE6PqqQZWQOE4WcGVaCOZxaCGZwIBlQQ/oBk4wmcRVY1GEkGDJYgKV4r5%2BPpfkWWEzkeT5cVMGFNhpIkvBJXk%2BUBWU1V1R08hOS03VsgNUiDN9PgzRM%2BAbTtPAHSdaylmDTqVu6qQobjGFBDe1Rvvrf6kwANQAZVUf6krTfys2vILnuRbNZDLSKSOimbYvmmtaDOEocJOYxjCGS5ZG7S4TiGVZcuWxzviK9aDbK27KrVarHvundZEarcSF3Nrjx008HMguRZH6ggHxF1QxYlqWShliAFaVnbwam%2BDZrihbpCW/LBYu8cNp/BLIl2yI1m7WRMtkTDkOebSCIrj3Ls27SuHOnuC4GOUEa58YziAA%3D%3D%3D).
 
-# Proposal with Exceptions # {#exceptional}
+## Undefined Behavior ## {#UB}
+
+`resize_and_overwrite` exposes users to UB if they read indeterminate
+([**basic.indet**]) values in the string buffer passed to `op`. Despite
+this foot-gun, `resize_and_overwrite` is appealing because:
+
+*   Uninitialized buffers are not uncommon in C++. See for example `new
+    T[20]` or the recently adopted `make_unique_for_overwrite`.
+
+*   Dynamic analyzers like Memory Sanitizer [[MSan]] and Valgrind
+    [[Valgrind]] can catch uninitialized reads.
 
 The version of this proposal seen by LEWG in [[Cologne]] throws
 `std::range_error` when `op` returns a value greater than `n`. The authors now
 recommend and LEWG confirmed via [[LEWGNovTelecon]] to use UB.  For the `op` to
 have written greater than `n` bytes, it would have had to overrun the provided
 buffer (already UB).
+
+The authors further recommend UB if `op` were to throw.
+`resize_and_overwrite` is motivated by measured performance
+improvements that are small individually but significant at scale.
+Providing exception guarantees would incur overhead that is in tension
+with the original motivation.
 
 ## Bikeshedding ## {#bikeshed}
 
