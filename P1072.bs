@@ -72,8 +72,7 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
 <ol start="7">
 
 <li>
-     <p>*Effects:* Let `o = size()`. Alters the value of `*this`
-     as follows:</p>
+     <p>*Effects:* Alters the value of `*this` as follows:</p>
 
      <ol>
      <li>— If `n <= size()`, erases the last `size() - n`
@@ -84,19 +83,30 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
      Invokes `erase(begin() + op(data(), n), end())`.
 </li>
 <li>
-    <p>*Remarks:* If `op` throws the behavior is undefined.
+    <p>*Remarks:*</p>
+
+    <p>If `op` throws the behavior is undefined.</p>
+
+    <p>Let `o = size()` before the call to
+    `resize_and_overwrite`.</p>
 
     <p>Let `m = op(data(), n)`.</p>
 
     <p>`m <= n` otherwise the behavior is undefined.</p>
 
     <p>If `m > o`, `op` shall replace ([**expr.ass**]) the values
-    stored in the character array `[data()+o, data()+m)`. Until
+    stored in the character array `[data() + o, data() + m)`. Until
     replaced, the values may be indeterminate [**basic.indet**]
-    [*Note:* `*(data()+o)` may not be `CharT()`. - *end note* ]</p>
+    [*Note:* `*(data() + o)` may not be `CharT()`. - *end
+    note*]</p>
+
+    <p>`op` may write to `data() + n + 1`. Any value written will be
+    replaced with CharT() after `op` returns. [*Note:* This
+    facilitiates interoperation with functions that write a trailing
+    null. - *end note* ]</p>
 
     <p>When `op` is called `*this` is in an unspecified state. `op`
-    shall not bind or in any way access `*this`</p>
+    shall not bind or in any way access `*this`.</p>
 
     <p>`op` shall not allow its first argument to be accessible
     after it returns.</p>
@@ -758,8 +768,8 @@ void resize_and_overwrite(size_type n, Operation op);
 <ol start="7">
 
 <li>
-     <p><ins>*Effects:* Let `o = size()`. Alters the value of `*this`
-     as follows:</ins></p>
+     <p><ins>*Effects:* Alters the value of `*this` as follows:
+     </ins></p>
 
      <ol>
      <li><ins>— If `n <= size()`, erases the last `size() - n`
@@ -770,20 +780,30 @@ void resize_and_overwrite(size_type n, Operation op);
      <ins>Invokes `erase(begin() + op(data(), n), end())`.</ins>
 </li>
 <li>
-    <p>*Remarks:* If `op` throws the behavior is undefined.
+    <p><ins>*Remarks:*</ins></p>
 
-    <p>Let `m = op(data(), n)`.</p>
+    <p><ins>If `op` throws the behavior is undefined.</ins></p>
+
+    <p><ins>Let `o = size()` before the call to
+    `resize_and_overwrite`.</ins></p>
+
+    <p><ins>Let `m = op(data(), n)`.</ins></p>
 
     <p><ins>`m <= n` otherwise the behavior is undefined.</ins></p>
 
     <p><ins>If `m > o`, `op` shall replace ([**expr.ass**]) the values
-    stored in the character array `[data()+o, data()+m)`. Until
+    stored in the character array `[data() + o, data() + m)`. Until
     replaced, the values may be indeterminate [**basic.indet**]
     [*Note:* `*(data() + o)` may not be `CharT()`. - *end
     note*]</ins></p>
 
+    <p><ins>`op` may write to `data() + n + 1`. Any value written will be
+    replaced with CharT() after `op` returns. [*Note:* This
+    facilitiates interoperation with functions that write a trailing
+    null. - *end note* ]</ins></p>
+
     <p><ins>When `op` is called `*this` is in an unspecified state. `op`
-    shall not bind or in any way access `*this`</ins></p>
+    shall not bind or in any way access `*this`.</ins></p>
 
     <p><ins>`op` shall not allow its first argument to be accessible
     after it returns.</ins></p>
@@ -843,6 +863,7 @@ We can then simplify p15:
 
 *   Rebased on [[N4878]].
 *   Fixed CompressWrapper example.
+*   Allowed writing one past the end.
 
 ## R5 &rarr; R6 ## {#R6}
 
