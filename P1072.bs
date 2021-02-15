@@ -69,7 +69,7 @@ This proposal addresses the problem by adding
 template&lt;typename Operation&gt;
 constexpr void resize_and_overwrite(size_type n, Operation op);
 </pre>
-<ol start="8">
+<ol start="7">
 
 <li>
      <p>*Effects:* Let `o = size()`. Alters the value of `*this`
@@ -93,8 +93,7 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
     <p>If `m > o`, `op` shall replace ([**expr.ass**]) the values
     stored in the character array `[data()+o, data()+m)`. Until
     replaced, the values may be indeterminate [**basic.indet**]
-    (6.6.4). [ *Note:* `*(data()+o)` may not be `CharT()`. - *end note*
-    ]</p>
+    [*Note:* `*(data()+o)` may not be `CharT()`. - *end note* ]</p>
 
     <p>When `op` is called `*this` is in an unspecified state. `op`
     shall not bind or in any way access `*this`</p>
@@ -236,7 +235,7 @@ std::string CompressWrapper(std::string_view input) {
 ## Method vs. Alternatives
 
 `resize_and_overwrite` exposes users to UB if they read indeterminate
-([**basic.indet**] (6.6.4)) values in the string buffer passed to `op`. Despite
+([**basic.indet**]) values in the string buffer passed to `op`. Despite
 this foot-gun, `resize_and_overwrite` is appealing because:
 
 *   Uninitialized buffers are not uncommon in C++. See for example `new
@@ -670,19 +669,18 @@ typename thrust::detail::disable_if<
 
 # Wording # {#wording}
 
-Wording is relative to [[N4830]].
+Wording is relative to [[N4878]].
 
 Motivation for some of these edits can be found in [[#allocator]].
 
 ## [<strong>basic.string</strong>] ## {#basic.string}
 
-In [**basic.string**] [21.3.2], in the synopsis, add
-`resize_and_overwrite`:
+In [**basic.string**], in the synopsis, add `resize_for_overwrite`:
 
 <blockquote>
 <pre highlight="">
 ...
-    // <em>21.3.2.4</em>, capacity
+    // <em>21.3.3.5</em>, capacity
     constexpr size_type size() const noexcept;
     constexpr size_type length() const noexcept;
     constexpr size_type max_size() const noexcept;
@@ -698,7 +696,7 @@ In [**basic.string**] [21.3.2], in the synopsis, add
 </pre>
 </blockquote>
 
-In [**string.require**] [21.3.2.1] clarify that `basic_string` is an
+In [**string.require**] clarify that `basic_string` is an
 allocator-aware container, and then add an exception for `construct`
 and `destroy`.
 
@@ -727,14 +725,14 @@ and `destroy`.
 
 </blockquote>
 
-In [**string.capacity**] [21.3.2.4]:
+In [**string.capacity**]:
 
 <blockquote>
 <pre highlight="">
 constexpr void resize(size_type n, charT c);
 </pre>
 
-<ol start="6">
+<ol start="5">
 
 <li>*Effects:* Alters the value of `*this` as follows:
      <ol>
@@ -747,7 +745,7 @@ constexpr void resize(size_type n, charT c);
 <pre highlight="">
 constexpr void resize(size_type n);
 </pre>
-<ol start="7">
+<ol start="6">
 <li>*Effects:* Equivalent to `resize(n, charT())`.</li>
 </ol>
 
@@ -756,7 +754,7 @@ template&lt;typename Operation&gt;
 void resize_and_overwrite(size_type n, Operation op);
 </ins></pre>
 
-<ol start="8">
+<ol start="7">
 
 <li>
      <p><ins>*Effects:* Let `o = size()`. Alters the value of `*this`
@@ -780,8 +778,8 @@ void resize_and_overwrite(size_type n, Operation op);
     <p><ins>If `m > o`, `op` shall replace ([**expr.ass**]) the values
     stored in the character array `[data()+o, data()+m)`. Until
     replaced, the values may be indeterminate [**basic.indet**]
-    (6.6.4). [ *Note:* `*(data() + o)` may not be `CharT()`. - *end
-    note* ]</ins></p>
+    [*Note:* `*(data() + o)` may not be `CharT()`. - *end
+    note*]</ins></p>
 
     <p><ins>When `op` is called `*this` is in an unspecified state. `op`
     shall not bind or in any way access `*this`</ins></p>
@@ -799,7 +797,7 @@ constexpr size_type capacity() const noexcept;
 
 ## [<strong>container.requirements.general</strong>] ## {#container}
 
-In [**container.requirements.general**] [22.2.1] clarify the ambiguous
+In [**container.requirements.general**] clarify the ambiguous
 "components affected by this subclause" terminology in p3. Just say
 "allocator-aware containers".
 
@@ -817,7 +815,7 @@ In [**container.requirements.general**] [22.2.1] clarify the ambiguous
     `allocator_traits<allocator_type>::rebind_traits<U>::construct`
     and destroyed using the function
     `allocator_traits<allocator_type>::rebind_traits<U>::destroy`
-    (20.10.9.2), where `U` is either `allocator_type::value_type` or
+    (20.10.9.3), where `U` is either `allocator_type::value_type` or
     an internal type used by the container. ...
 
 </li>
@@ -828,11 +826,11 @@ We can then simplify p15:
 <blockquote>
 <ol start="15">
 
-<li><del>All of the containers defined in this Clause and in 21.3.2
+<li><del>All of the containers defined in this Clause and in 21.3.3
     except `array` meet the additional requirements of an
     allocator-aware container, as</del> <ins> Allocator-aware
     containers meet the additional requirements</ins> described in
-    Table 75.</li>
+    Table 78.</li>
 
 </ol>
 </blockquote>
@@ -840,7 +838,11 @@ We can then simplify p15:
 
 # History # {#history}
 
-## R5 &rarr; R6 ## {#R5}
+## R6 &rarr; R7 ## {#R7}
+
+*   Rebased on [[N4878]].
+
+## R5 &rarr; R6 ## {#R6}
 
 LEWG reviewed R5 via [[LEWGNovTelecon]].
 
@@ -875,7 +877,7 @@ Modifications since R5:
     part of the operation performed.
 *   Applied `constexpr`
 
-## R4 &rarr; R5 ## {#R4}
+## R4 &rarr; R5 ## {#R5}
 
 A draft of this revision was presented to LEWG at the [[Cologne]] meeting.
 
@@ -890,14 +892,14 @@ Forward to LWG for C++23
 *   Rebased on [[N4830]].
 *   Proposed UB instead of `throwing std::range_error`.
 
-## R3 &rarr; R4 ## {#R3}
+## R3 &rarr; R4 ## {#R4}
 
 *   Applied feedback from the [[KOA]] meeting.
 *   Moved to using a callback routine, rather than leaving invariants
     weakened from the time `resize_default_init` returned until values
     in the buffer were assigned.
 
-## R2 &rarr; R3 ## {#R2}
+## R2 &rarr; R3 ## {#R3}
 
 *   Applied Jonathan Wakely's editorial comments on [[#wording]].
 *   Rebased on [[N4791]].
