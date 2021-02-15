@@ -698,7 +698,7 @@ In [**basic.string**], in the synopsis, add `resize_for_overwrite`:
     constexpr void resize(size_type n, charT c);
     constexpr void resize(size_type n);
     <ins>template&lt;typename Operation&gt;</ins>
-    <ins>void resize_and_overwrite(size_type n, Operation op);</ins>
+    <ins>constexpr void resize_and_overwrite(size_type n, Operation op);</ins>
     constexpr size_type capacity() const noexcept;
     constexpr void reserve(size_type res_arg);
     constexpr void shrink_to_fit();
@@ -762,7 +762,7 @@ constexpr void resize(size_type n);
 
 <pre highlight=""><ins>
 template&lt;typename Operation&gt;
-void resize_and_overwrite(size_type n, Operation op);
+constexpr void resize_and_overwrite(size_type n, Operation op);
 </ins></pre>
 
 <ol start="7">
