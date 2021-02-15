@@ -217,14 +217,15 @@ std::string CompressWrapper(std::string_view input) {
     std::string compressed;
     // Compute upper limit of compressed input.
     size_t size = compressBound(input.size());
+    int ret;
 
     // GOOD: No initialization
     compressed.resize_and_overwrite(size, [&](char* buf, size_t n) {
-        int ret = compress(buf, &size, input.data(), input.size());
-        if (ret != OK) {
-          throw ...some error...
-        }
-        return n;
+        ret = compress(buf, &size, input.data(), input.size());
+        return *size;
+    });
+    if (ret != OK) {
+       throw ...some error...
     }
     return compressed;
 }
@@ -841,6 +842,7 @@ We can then simplify p15:
 ## R6 &rarr; R7 ## {#R7}
 
 *   Rebased on [[N4878]].
+*   Fixed CompressWrapper example.
 
 ## R5 &rarr; R6 ## {#R6}
 
