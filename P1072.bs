@@ -3,14 +3,14 @@ Title: basic_string::resize_and_overwrite
 Status: P
 Shortname: P1072
 Group: WG21
-Revision: 6
+Revision: 7
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2020-12-14
+Date: 2021-02-15
 Audience: LEWG
 Audience: LWG
 Audience: SG16
-Abstract: Allow access to default-initialized elements of basic_string.
+Abstract: Optimized writing of data into a basic_string.
 URL: http://wg21.link/P1072R6
 Markup Shorthands: markdown yes
 Default Highlight: C++
@@ -19,7 +19,7 @@ Default Highlight: C++
 # Motivation # {#mot}
 
 Performance sensitive code is impacted by the cost of initializing and
-manipulating strings. When streaming data into a `basic_string`, a
+manipulating strings. When writing data into a `basic_string`, a
 programmer is faced with an unhappy choice:
 
 * **Pay for extra initialization** &mdash; `resize`, which zero
