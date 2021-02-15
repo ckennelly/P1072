@@ -3,14 +3,14 @@ Title: basic_string::resize_and_overwrite
 Status: P
 Shortname: P1072
 Group: WG21
-Revision: 6
+Revision: 7
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2020-12-14
+Date: 2021-02-15
 Audience: LEWG
 Audience: LWG
 Audience: SG16
-Abstract: Allow access to default-initialized elements of basic_string.
+Abstract: Optimized writing of data into a basic_string.
 URL: http://wg21.link/P1072R6
 Markup Shorthands: markdown yes
 Default Highlight: C++
@@ -19,7 +19,7 @@ Default Highlight: C++
 # Motivation # {#mot}
 
 Performance sensitive code is impacted by the cost of initializing and
-manipulating strings. When streaming data into a `basic_string`, a
+manipulating strings. When writing data into a `basic_string`, a
 programmer is faced with an unhappy choice:
 
 * **Pay for extra initialization** &mdash; `resize`, which zero
@@ -69,11 +69,10 @@ This proposal addresses the problem by adding
 template&lt;typename Operation&gt;
 constexpr void resize_and_overwrite(size_type n, Operation op);
 </pre>
-<ol start="8">
+<ol start="7">
 
 <li>
-     <p>*Effects:* Let `o = size()`. Alters the value of `*this`
-     as follows:</p>
+     <p>*Effects:* Alters the value of `*this` as follows:</p>
 
      <ol>
      <li>— If `n <= size()`, erases the last `size() - n`
@@ -84,20 +83,30 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
      Invokes `erase(begin() + op(data(), n), end())`.
 </li>
 <li>
-    <p>*Remarks:* If `op` throws the behavior is undefined.
+    <p>*Remarks:*</p>
+
+    <p>If `op` throws the behavior is undefined.</p>
+
+    <p>Let `o = size()` before the call to
+    `resize_and_overwrite`.</p>
 
     <p>Let `m = op(data(), n)`.</p>
 
     <p>`m <= n` otherwise the behavior is undefined.</p>
 
     <p>If `m > o`, `op` shall replace ([**expr.ass**]) the values
-    stored in the character array `[data()+o, data()+m)`. Until
+    stored in the character array `[data() + o, data() + m)`. Until
     replaced, the values may be indeterminate [**basic.indet**]
-    (6.6.4). [ *Note:* `*(data()+o)` may not be `CharT()`. - *end note*
-    ]</p>
+    [*Note:* `*(data() + o)` may not be `CharT()`. - *end
+    note*]</p>
+
+    <p>`op` may write to `data() + n + 1`. Any value written will be
+    replaced with CharT() after `op` returns. [*Note:* This
+    facilitiates interoperation with functions that write a trailing
+    null. - *end note* ]</p>
 
     <p>When `op` is called `*this` is in an unspecified state. `op`
-    shall not bind or in any way access `*this`</p>
+    shall not bind or in any way access `*this`.</p>
 
     <p>`op` shall not allow its first argument to be accessible
     after it returns.</p>
@@ -218,14 +227,15 @@ std::string CompressWrapper(std::string_view input) {
     std::string compressed;
     // Compute upper limit of compressed input.
     size_t size = compressBound(input.size());
+    int ret;
 
     // GOOD: No initialization
     compressed.resize_and_overwrite(size, [&](char* buf, size_t n) {
-        int ret = compress(buf, &size, input.data(), input.size());
-        if (ret != OK) {
-          throw ...some error...
-        }
-        return n;
+        ret = compress(buf, &size, input.data(), input.size());
+        return *size;
+    });
+    if (ret != OK) {
+       throw ...some error...
     }
     return compressed;
 }
@@ -234,16 +244,6 @@ std::string CompressWrapper(std::string_view input) {
 # Design Considerations # {#design}
 
 ## Method vs. Alternatives
-
-`resize_and_overwrite` exposes users to UB if they read indeterminate
-([**basic.indet**] (6.6.4)) values in the string buffer passed to `op`. Despite
-this foot-gun, `resize_and_overwrite` is appealing because:
-
-*   Uninitialized buffers are not uncommon in C++. See for example `new
-    T[20]` or the recently adopted `make_unique_for_overwrite`.
-
-*   Dynamic analyzers like Memory Sanitizer [[MSan]] and Valgrind
-    [[Valgrind]] can catch uninitialized reads.
 
 During the [[SAN]] Meeting LEWG expressed a preference for
 implementing this functionality as a new method on `basic_string` (as
@@ -316,13 +316,29 @@ those libraries to continue to support `construct` and `destroy` as
 `charT`s, so any such extensions are non-portable. See [godbolt.org](
 https://godbolt.org/#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAKxAEZSAbAQwDtRkBSAJgCFufSAZ1QBXYskwgA5NwDMeFsgYisAag6yAwoILEFwDdg4AGAIInTO9CBAAjJoLzIA%2Bjr1sN2gtZBv9h1QAzVFQIAEp1AHY%2BM1U41Ssbe0cXPw8tRN9df1lsBI0Y03iEgDpiTEcAL0wILjCCi2LygjEWfNlCjkiAEQspMMZpAFYpUhZpY1HUaU1%2BfgTRcUx1LllaUYIJ/oGAaxBVksiATgAOABYzgDYuE64rs9pLy8GpM9HxqUnSaalRwRBjKRNp9%2BqQ4LAYIgUKgALYABzwDEwZAoEDQ8MRyJQzDYzl0IhYO1IgURBGR/wgti2pFsCiYxAAntJ1qR0TDMCwCAB5FgMJkg0hYGGsYBI6n4crIAh4ABuFWpmAAHphkCIyczRgoyQwNUC9DCtgMcew5rxGHhbP9IANUHDpagWP8pABaKwMC0abru2ycXj8P6LCR0I3Dd7Un6Kk6XZ2XM6qJQi1QQfGEiIQXCEEgrNakVSaWEIpHEbO0CKzP28DaG3YgIZHEpHSKRO60c6RIa0SLGWRDF5vUgGoaAj5fH5/AFAw1gyEQJCiAhwtXkSjowtY%2BiYfBEYh0UgAd2ITDhGpDUhGY3D0jktFUe8ICFUkejsfjxqTKZ2YSrILCAwQmCYLAd3CPtRkHYdL1%2BIQJ2BSZf1IPYDi4Otbi4LgjlkM4hlkI4zheWQwwFMdJx/ad4HBKFV0xFEVwLaiQGAQQWCPQQEFQAhiVJclKCpAVaWYxldTZDluV5fkviFEUxQFCUVWlOUnS%2BJUVTVSQpBZLVMB1dSNn1KdjRQU0BG9K0QNte1HWkAMxCDUsXnPEcpmkJ8YzjYBkGQd9iAJT8kwzbcS1zfMMSLbM6jzIzvzgv8AKAygazuEoTlodDaDS44TiOdCuFAgdawgoirOgwFYNBCjZxAedFw41EqKLfZSE3TMd3oA8jxPezCNHK9Vi4W970fKNXNUdzPOTbzUyi7ZSH/QCsRA7T%2B3Ai9Cqg/4SurBD9iGEorijG5uzOSIjtjfCuqcqDSoGcqZyQOrkWXNE6PqqQZWQOE4WcGVaCOZxaCGZwIBlQQ/oBk4wmcRVY1GEkGDJYgKV4r5%2BPpfkWWEzkeT5cVMGFNhpIkvBJXk%2BUBWU1V1R08hOS03VsgNUiDN9PgzRM%2BAbTtPAHSdaylmDTqVu6qQobjGFBDe1Rvvrf6kwANQAZVUf6krTfys2vILnuRbNZDLSKSOimbYvmmtaDOEocJOYxjCGS5ZG7S4TiGVZcuWxzviK9aDbK27KrVarHvundZEarcSF3Nrjx008HMguRZH6ggHxF1QxYlqWShliAFaVnbwam%2BDZrihbpCW/LBYu8cNp/BLIl2yI1m7WRMtkTDkOebSCIrj3Ls27SuHOnuC4GOUEa58YziAA%3D%3D%3D).
 
-# Proposal with Exceptions # {#exceptional}
+## Undefined Behavior ## {#UB}
+
+`resize_and_overwrite` exposes users to UB if they read indeterminate
+([**basic.indet**]) values in the string buffer passed to `op`. Despite
+this foot-gun, `resize_and_overwrite` is appealing because:
+
+*   Uninitialized buffers are not uncommon in C++. See for example `new
+    T[20]` or the recently adopted `make_unique_for_overwrite`.
+
+*   Dynamic analyzers like Memory Sanitizer [[MSan]] and Valgrind
+    [[Valgrind]] can catch uninitialized reads.
 
 The version of this proposal seen by LEWG in [[Cologne]] throws
 `std::range_error` when `op` returns a value greater than `n`. The authors now
 recommend and LEWG confirmed via [[LEWGNovTelecon]] to use UB.  For the `op` to
 have written greater than `n` bytes, it would have had to overrun the provided
 buffer (already UB).
+
+The authors further recommend UB if `op` were to throw.
+`resize_and_overwrite` is motivated by measured performance
+improvements that are small individually but significant at scale.
+Providing exception guarantees would incur overhead that is in tension
+with the original motivation.
 
 ## Bikeshedding ## {#bikeshed}
 
@@ -670,26 +686,25 @@ typename thrust::detail::disable_if<
 
 # Wording # {#wording}
 
-Wording is relative to [[N4830]].
+Wording is relative to [[N4878]].
 
 Motivation for some of these edits can be found in [[#allocator]].
 
 ## [<strong>basic.string</strong>] ## {#basic.string}
 
-In [**basic.string**] [21.3.2], in the synopsis, add
-`resize_and_overwrite`:
+In [**basic.string**], in the synopsis, add `resize_for_overwrite`:
 
 <blockquote>
 <pre highlight="">
 ...
-    // <em>21.3.2.4</em>, capacity
+    // <em>21.3.3.5</em>, capacity
     constexpr size_type size() const noexcept;
     constexpr size_type length() const noexcept;
     constexpr size_type max_size() const noexcept;
     constexpr void resize(size_type n, charT c);
     constexpr void resize(size_type n);
     <ins>template&lt;typename Operation&gt;</ins>
-    <ins>void resize_and_overwrite(size_type n, Operation op);</ins>
+    <ins>constexpr void resize_and_overwrite(size_type n, Operation op);</ins>
     constexpr size_type capacity() const noexcept;
     constexpr void reserve(size_type res_arg);
     constexpr void shrink_to_fit();
@@ -698,7 +713,7 @@ In [**basic.string**] [21.3.2], in the synopsis, add
 </pre>
 </blockquote>
 
-In [**string.require**] [21.3.2.1] clarify that `basic_string` is an
+In [**string.require**] clarify that `basic_string` is an
 allocator-aware container, and then add an exception for `construct`
 and `destroy`.
 
@@ -727,14 +742,14 @@ and `destroy`.
 
 </blockquote>
 
-In [**string.capacity**] [21.3.2.4]:
+In [**string.capacity**]:
 
 <blockquote>
 <pre highlight="">
 constexpr void resize(size_type n, charT c);
 </pre>
 
-<ol start="6">
+<ol start="5">
 
 <li>*Effects:* Alters the value of `*this` as follows:
      <ol>
@@ -747,20 +762,20 @@ constexpr void resize(size_type n, charT c);
 <pre highlight="">
 constexpr void resize(size_type n);
 </pre>
-<ol start="7">
+<ol start="6">
 <li>*Effects:* Equivalent to `resize(n, charT())`.</li>
 </ol>
 
 <pre highlight=""><ins>
 template&lt;typename Operation&gt;
-void resize_and_overwrite(size_type n, Operation op);
+constexpr void resize_and_overwrite(size_type n, Operation op);
 </ins></pre>
 
-<ol start="8">
+<ol start="7">
 
 <li>
-     <p><ins>*Effects:* Let `o = size()`. Alters the value of `*this`
-     as follows:</ins></p>
+     <p><ins>*Effects:* Alters the value of `*this` as follows:
+     </ins></p>
 
      <ol>
      <li><ins>— If `n <= size()`, erases the last `size() - n`
@@ -771,20 +786,30 @@ void resize_and_overwrite(size_type n, Operation op);
      <ins>Invokes `erase(begin() + op(data(), n), end())`.</ins>
 </li>
 <li>
-    <p>*Remarks:* If `op` throws the behavior is undefined.
+    <p><ins>*Remarks:*</ins></p>
 
-    <p>Let `m = op(data(), n)`.</p>
+    <p><ins>If `op` throws the behavior is undefined.</ins></p>
+
+    <p><ins>Let `o = size()` before the call to
+    `resize_and_overwrite`.</ins></p>
+
+    <p><ins>Let `m = op(data(), n)`.</ins></p>
 
     <p><ins>`m <= n` otherwise the behavior is undefined.</ins></p>
 
     <p><ins>If `m > o`, `op` shall replace ([**expr.ass**]) the values
-    stored in the character array `[data()+o, data()+m)`. Until
+    stored in the character array `[data() + o, data() + m)`. Until
     replaced, the values may be indeterminate [**basic.indet**]
-    (6.6.4). [ *Note:* `*(data() + o)` may not be `CharT()`. - *end
-    note* ]</ins></p>
+    [*Note:* `*(data() + o)` may not be `CharT()`. - *end
+    note*]</ins></p>
+
+    <p><ins>`op` may write to `data() + n + 1`. Any value written will be
+    replaced with CharT() after `op` returns. [*Note:* This
+    facilitiates interoperation with functions that write a trailing
+    null. - *end note* ]</ins></p>
 
     <p><ins>When `op` is called `*this` is in an unspecified state. `op`
-    shall not bind or in any way access `*this`</ins></p>
+    shall not bind or in any way access `*this`.</ins></p>
 
     <p><ins>`op` shall not allow its first argument to be accessible
     after it returns.</ins></p>
@@ -799,7 +824,7 @@ constexpr size_type capacity() const noexcept;
 
 ## [<strong>container.requirements.general</strong>] ## {#container}
 
-In [**container.requirements.general**] [22.2.1] clarify the ambiguous
+In [**container.requirements.general**] clarify the ambiguous
 "components affected by this subclause" terminology in p3. Just say
 "allocator-aware containers".
 
@@ -817,7 +842,7 @@ In [**container.requirements.general**] [22.2.1] clarify the ambiguous
     `allocator_traits<allocator_type>::rebind_traits<U>::construct`
     and destroyed using the function
     `allocator_traits<allocator_type>::rebind_traits<U>::destroy`
-    (20.10.9.2), where `U` is either `allocator_type::value_type` or
+    (20.10.9.3), where `U` is either `allocator_type::value_type` or
     an internal type used by the container. ...
 
 </li>
@@ -828,11 +853,11 @@ We can then simplify p15:
 <blockquote>
 <ol start="15">
 
-<li><del>All of the containers defined in this Clause and in 21.3.2
+<li><del>All of the containers defined in this Clause and in 21.3.3
     except `array` meet the additional requirements of an
     allocator-aware container, as</del> <ins> Allocator-aware
     containers meet the additional requirements</ins> described in
-    Table 75.</li>
+    Table 78.</li>
 
 </ol>
 </blockquote>
@@ -840,7 +865,13 @@ We can then simplify p15:
 
 # History # {#history}
 
-## R5 &rarr; R6 ## {#R5}
+## R6 &rarr; R7 ## {#R7}
+
+*   Rebased on [[N4878]].
+*   Fixed CompressWrapper example.
+*   Allowed writing one past the end.
+
+## R5 &rarr; R6 ## {#R6}
 
 LEWG reviewed R5 via [[LEWGNovTelecon]].
 
@@ -875,7 +906,7 @@ Modifications since R5:
     part of the operation performed.
 *   Applied `constexpr`
 
-## R4 &rarr; R5 ## {#R4}
+## R4 &rarr; R5 ## {#R5}
 
 A draft of this revision was presented to LEWG at the [[Cologne]] meeting.
 
@@ -890,14 +921,14 @@ Forward to LWG for C++23
 *   Rebased on [[N4830]].
 *   Proposed UB instead of `throwing std::range_error`.
 
-## R3 &rarr; R4 ## {#R3}
+## R3 &rarr; R4 ## {#R4}
 
 *   Applied feedback from the [[KOA]] meeting.
 *   Moved to using a callback routine, rather than leaving invariants
     weakened from the time `resize_default_init` returned until values
     in the buffer were assigned.
 
-## R2 &rarr; R3 ## {#R2}
+## R2 &rarr; R3 ## {#R3}
 
 *   Applied Jonathan Wakely's editorial comments on [[#wording]].
 *   Rebased on [[N4791]].
