@@ -865,6 +865,32 @@ We can then simplify p15:
 
 # History # {#history}
 
+## R7 &rarr; R8 ## {#R8}
+
+LEWG reviewed R7 via [[April2021Telecon]]
+
+<blockquote>
+POLL: Modify P1072R7 (`basic_string::resize_and_overwrite`) by adding a feature
+test macro, and send revised paper to electronic polling to be forwarded to LWG
+with ship vehicle C++23, and priority B2.
+
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>9</td><td>11</td><td>1</td><td>0</td><td>0</td></tr>
+</table>
+
+Attendance: 31
+
+# of Authors: 2
+
+Author Position: Strongly Favor
+
+Outcome: Strong consensus in favor of sending to electronic polling.
+</blockquote>
+
+*   Added LEWG poll from [[April2021Telecon]]
+
+
 ## R6 &rarr; R7 ## {#R7}
 
 *   Rebased on [[N4878]].
@@ -975,6 +1001,11 @@ the implmentation.
         "href": "https://github.com/abseil/abseil-cpp",
         "date": "2018-09-22",
         "title": "Abseil"
+    },
+    "April2021Telecon": {
+        "href": "https://wiki.edg.com/bin/view/Wg21telecons2021/P1072",
+        "date": "2021-04-27",
+        "title": "Library Evolution Telecon 2021-04-27"
     },
     "Cologne": {
         "href": "http://wiki.edg.com/bin/view/Wg21cologne2019/P1072",
