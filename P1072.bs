@@ -1,17 +1,17 @@
 <pre class='metadata'>
 Title: basic_string::resize_and_overwrite
-Status: P
+Status: D
 Shortname: P1072
 Group: WG21
-Revision: 7
+Revision: 8
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2021-02-15
+Date: 2021-04-28
 Audience: LEWG
 Audience: LWG
 Audience: SG16
 Abstract: Optimized writing of data into a basic_string.
-URL: http://wg21.link/P1072R6
+URL: http://wg21.link/P1072R8
 Markup Shorthands: markdown yes
 Default Highlight: C++
 </pre>
