@@ -690,6 +690,18 @@ Wording is relative to [[N4878]].
 
 Motivation for some of these edits can be found in [[#allocator]].
 
+## [<strong>version.syn</strong>] ## {#version.syn}
+
+In [**version.syn**], add:
+
+<blockquote>
+<pre highlight="">
+    #define __cpp_lib_string_resize_and_overwrite YYYYMML  // <em>also in</em> &lt;string&gt;
+</pre>
+</blockquote>
+
+Adjust the placeholder value as needed so as to denote this proposal’s date of adoption.
+
 ## [<strong>basic.string</strong>] ## {#basic.string}
 
 In [**basic.string**], in the synopsis, add `resize_for_overwrite`:
@@ -889,7 +901,7 @@ Outcome: Strong consensus in favor of sending to electronic polling.
 </blockquote>
 
 *   Added LEWG poll from [[April2021Telecon]]
-
+*   Added feature test macro.
 
 ## R6 &rarr; R7 ## {#R7}
 
