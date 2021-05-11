@@ -74,13 +74,12 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
 <li>
      <p>*Effects:* Alters the value of `*this` as follows:</p>
 
-     <ol>
-     <li>— If `n <= size()`, erases the last `size() - n`
-     elements.</li>
+     <ul style="list-style-type:none;">
+     <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
      <li>— If `n > size()`, appends `n - size()`
          default-initialized elements.</li>
-     </ol>
-     Invokes `erase(begin() + op(data(), n), end())`.
+     <li>— Invokes `erase(begin() + op(data(), n), end())`.</li>
+     </ul>
 </li>
 <li>
     <p>*Remarks:*</p>
@@ -97,11 +96,11 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
     <p>If `m > o`, `op` shall replace ([**expr.ass**]) the values
     stored in the character array `[data() + o, data() + m)`. Until
     replaced, the values may be indeterminate [**basic.indet**]
-    [*Note:* `*(data() + o)` may not be `CharT()`. - *end
+    [*Note:* `*(data() + o)` may not be `charT()`. - *end
     note*]</p>
 
     <p>`op` may write to `data() + n + 1`. Any value written will be
-    replaced with CharT() after `op` returns. [*Note:* This
+    replaced with `charT()` after `op` returns. [*Note:* This
     facilitiates interoperation with functions that write a trailing
     null. - *end note* ]</p>
 
@@ -226,13 +225,14 @@ extern "C" {
 std::string CompressWrapper(std::string_view input) {
     std::string compressed;
     // Compute upper limit of compressed input.
-    size_t size = compressBound(input.size());
+    size_t bound = compressBound(input.size());
     int ret;
 
     // GOOD: No initialization
-    compressed.resize_and_overwrite(size, [&](char* buf, size_t n) {
-        ret = compress(buf, &size, input.data(), input.size());
-        return *size;
+    compressed.resize_and_overwrite(bound, [&](char* buf, size_t n) {
+        size_t compressed_size = n;
+        ret = compress(buf, &out_size, input.data(), input.size());
+        return compressed_size;
     });
     if (ret != OK) {
        throw ...some error...
@@ -686,13 +686,25 @@ typename thrust::detail::disable_if<
 
 # Wording # {#wording}
 
-Wording is relative to [[N4878]].
+Wording is relative to [[N4885]].
 
 Motivation for some of these edits can be found in [[#allocator]].
 
-## [<strong>basic.string</strong>] ## {#basic.string}
+## [<strong>version.syn</strong>] ## {#version.syn}
 
-In [**basic.string**], in the synopsis, add `resize_for_overwrite`:
+In [**version.syn**], add:
+
+<blockquote>
+<pre highlight="">
+    #define __cpp_lib_string_resize_and_overwrite YYYYMML  // <em>also in</em> &lt;string&gt;
+</pre>
+</blockquote>
+
+Adjust the placeholder value as needed so as to denote this proposal’s date of adoption.
+
+## [<strong>basic.string.general</strong>] ## {#basic.string.general}
+
+In [**basic.string.general**], in the synopsis, add `resize_for_overwrite`:
 
 <blockquote>
 <pre highlight="">
@@ -713,6 +725,8 @@ In [**basic.string**], in the synopsis, add `resize_for_overwrite`:
 </pre>
 </blockquote>
 
+## [<strong>string.require</strong>] ## {#string.require}
+
 In [**string.require**] clarify that `basic_string` is an
 allocator-aware container, and then add an exception for `construct`
 and `destroy`.
@@ -727,8 +741,10 @@ and `destroy`.
      used is obtained as described in [container.requirements.general]. In
      every specialization `basic_string<charT, traits, Allocator>`</del>, <ins>
      and</ins> the type `traits` shall satisfy the character traits
-     requirements ([char.traits]). [*Note:* The program is ill-formed if
-     `traits::char_type` is not the same type as `charT`. &mdash; *end note*]
+     requirements ([char.traits]).
+
+     [*Note:* The program is ill-formed if `traits::char_type` is not
+     the same type as `charT`. &mdash; *end note*]
 
 4.   <ins> `basic_string` is an allocator-aware container as described
      in [container.requirements.general], except that it is
@@ -742,6 +758,8 @@ and `destroy`.
 
 </blockquote>
 
+## [<strong>string.capacity</strong>] ## {#string.capacity}
+
 In [**string.capacity**]:
 
 <blockquote>
@@ -752,10 +770,10 @@ constexpr void resize(size_type n, charT c);
 <ol start="5">
 
 <li>*Effects:* Alters the value of `*this` as follows:
-     <ol>
+     <ul style="list-style-type:none;">
      <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
      <li>— If `n > size()`, appends `n - size()` copies of `c`.</li>
-     </ol>
+     </ul>
 </li>
 </ol>
 
@@ -777,13 +795,13 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
      <p><ins>*Effects:* Alters the value of `*this` as follows:
      </ins></p>
 
-     <ol>
+     <ul style="list-style-type:none;">
      <li><ins>— If `n <= size()`, erases the last `size() - n`
      elements.</ins></li>
      <li><ins>— If `n > size()`, appends `n - size()`
          default-initialized elements.</ins></li>
-     </ol>
-     <ins>Invokes `erase(begin() + op(data(), n), end())`.</ins>
+     <li><ins>— Invokes `erase(begin() + op(data(), n), end())`.</ins></li>
+     </ul>
 </li>
 <li>
     <p><ins>*Remarks:*</ins></p>
@@ -800,11 +818,11 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
     <p><ins>If `m > o`, `op` shall replace ([**expr.ass**]) the values
     stored in the character array `[data() + o, data() + m)`. Until
     replaced, the values may be indeterminate [**basic.indet**]
-    [*Note:* `*(data() + o)` may not be `CharT()`. - *end
+    [*Note:* `*(data() + o)` may not be `charT()`. - *end
     note*]</ins></p>
 
     <p><ins>`op` may write to `data() + n + 1`. Any value written will be
-    replaced with CharT() after `op` returns. [*Note:* This
+    replaced with `charT()` after `op` returns. [*Note:* This
     facilitiates interoperation with functions that write a trailing
     null. - *end note* ]</ins></p>
 
@@ -889,13 +907,17 @@ Outcome: Strong consensus in favor of sending to electronic polling.
 </blockquote>
 
 *   Added LEWG poll from [[April2021Telecon]]
-
+*   Added feature test macro.
+*   Fixed ambiguous indentation in string.capacity Effects.
+*   Further fixes for CompressWrapper example.
+*   Rebased on [[N4885]].
 
 ## R6 &rarr; R7 ## {#R7}
 
 *   Rebased on [[N4878]].
 *   Fixed CompressWrapper example.
 *   Allowed writing one past the end.
+*   Reorganized [[#UB]].
 
 ## R5 &rarr; R6 ## {#R6}
 
@@ -1059,21 +1081,6 @@ the implmentation.
         "href": "http://llvm.org/viewvc/llvm-project?view=revision&revision=347589",
         "date": "2018-11-26",
         "title": "Add basic_string::__resize_default_init (from P1072)"
-    },
-    "P1973R1": {
-    	"href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p1973r1.pdf",
-	"date": "2020-02-12",
-	"title": "Rename _default_init Functions"
-    },
-    "N4830": {
-    	"href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/n4830.pdf",
-	"date": "2019-08-15",
-	"title": "Working Draft, Standard for Programming Language C++"
-    },
-    "N4878": {
-    	"href": "http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/n4878.pdf",
-	"date": "2020-12-15",
-	"title": "Working Draft, Standard for Programming Language C++"
     }
 }
 </pre>
