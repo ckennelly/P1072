@@ -225,13 +225,14 @@ extern "C" {
 std::string CompressWrapper(std::string_view input) {
     std::string compressed;
     // Compute upper limit of compressed input.
-    size_t size = compressBound(input.size());
+    size_t bound = compressBound(input.size());
     int ret;
 
     // GOOD: No initialization
-    compressed.resize_and_overwrite(size, [&](char* buf, size_t n) {
-        ret = compress(buf, &size, input.data(), input.size());
-        return *size;
+    compressed.resize_and_overwrite(bound, [&](char* buf, size_t n) {
+        size_t compressed_size = n;
+        ret = compress(buf, &out_size, input.data(), input.size());
+        return compressed_size;
     });
     if (ret != OK) {
        throw ...some error...
@@ -902,6 +903,7 @@ Outcome: Strong consensus in favor of sending to electronic polling.
 *   Added LEWG poll from [[April2021Telecon]]
 *   Added feature test macro.
 *   Fixed ambiguous indentation in string.capacity Effects.
+*   Further fixes for CompressWrapper example.
 
 ## R6 &rarr; R7 ## {#R7}
 
