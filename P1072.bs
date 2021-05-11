@@ -74,13 +74,12 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
 <li>
      <p>*Effects:* Alters the value of `*this` as follows:</p>
 
-     <ol>
-     <li>— If `n <= size()`, erases the last `size() - n`
-     elements.</li>
+     <ul style="list-style-type:none;">
+     <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
      <li>— If `n > size()`, appends `n - size()`
          default-initialized elements.</li>
-     </ol>
-     Invokes `erase(begin() + op(data(), n), end())`.
+     <li>— Invokes `erase(begin() + op(data(), n), end())`.</li>
+     </ul>
 </li>
 <li>
     <p>*Remarks:*</p>
@@ -764,10 +763,10 @@ constexpr void resize(size_type n, charT c);
 <ol start="5">
 
 <li>*Effects:* Alters the value of `*this` as follows:
-     <ol>
+     <ul style="list-style-type:none;">
      <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
      <li>— If `n > size()`, appends `n - size()` copies of `c`.</li>
-     </ol>
+     </ul>
 </li>
 </ol>
 
@@ -789,13 +788,13 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
      <p><ins>*Effects:* Alters the value of `*this` as follows:
      </ins></p>
 
-     <ol>
+     <ul style="list-style-type:none;">
      <li><ins>— If `n <= size()`, erases the last `size() - n`
      elements.</ins></li>
      <li><ins>— If `n > size()`, appends `n - size()`
          default-initialized elements.</ins></li>
-     </ol>
-     <ins>Invokes `erase(begin() + op(data(), n), end())`.</ins>
+     <li><ins>— Invokes `erase(begin() + op(data(), n), end())`.</ins></li>
+     </ul>
 </li>
 <li>
     <p><ins>*Remarks:*</ins></p>
@@ -902,6 +901,7 @@ Outcome: Strong consensus in favor of sending to electronic polling.
 
 *   Added LEWG poll from [[April2021Telecon]]
 *   Added feature test macro.
+*   Fixed ambiguous indentation in string.capacity Effects.
 
 ## R6 &rarr; R7 ## {#R7}
 
