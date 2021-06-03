@@ -906,11 +906,28 @@ Author Position: Strongly Favor
 Outcome: Strong consensus in favor of sending to electronic polling.
 </blockquote>
 
+LEWG did electronic polling via [[D2384R0]]
+
+<blockquote>
+Poll 7: Modify P1072R7 (`basic_string::resize_and_overwrite`) by adding a
+feature test macro, and then send the revised paper to Library Working Group
+for C++23, classified as an improvement of an existing feature ([P0592R4]
+bucket 2 item).
+
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>17</td><td>8</td><td>0</td><td>1</td><td>1</td></tr>
+</table>
+
+Outcome: Consensus in favor.
+</blockquote>
+
 *   Added LEWG poll from [[April2021Telecon]]
 *   Added feature test macro.
 *   Fixed ambiguous indentation in string.capacity Effects.
 *   Further fixes for CompressWrapper example.
 *   Rebased on [[N4885]].
+*   Added LEWG electronic polling results from [[D2384R0]].
 
 ## R6 &rarr; R7 ## {#R7}
 
@@ -1033,6 +1050,11 @@ the implmentation.
         "href": "http://wiki.edg.com/bin/view/Wg21cologne2019/P1072",
         "date": "2019-07-19",
         "title": "Cologne Meeting Minutes"
+    },
+    "D2384R0": {
+    	"href": "https://api.csswg.org/bikeshed/?force=1&url=https://raw.githubusercontent.com/brycelelbach/wg21_p2384_2021_spring_library_evolution_poll_outcomes/main/2021_spring_library_evolution_poll_outcomes.bs",
+	"date": "2021-06-03",
+	"title": "2021 Spring Library Evolution Poll Outcomes",
     },
     "KOA": {
         "href": "http://wiki.edg.com/bin/view/Wg21kona2019/P1072",
