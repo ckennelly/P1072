@@ -1,17 +1,17 @@
 <pre class='metadata'>
 Title: basic_string::resize_and_overwrite
-Status: P
+Status: D
 Shortname: P1072
 Group: WG21
-Revision: 8
+Revision: 9
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2021-06-03
+Date: 2021-08-06
 Audience: LEWG
 Audience: LWG
 Audience: SG16
 Abstract: Optimized writing of data into a basic_string.
-URL: http://wg21.link/P1072R8
+URL: http://wg21.link/P1072R9
 Markup Shorthands: markdown yes
 Default Highlight: C++
 </pre>
@@ -66,7 +66,7 @@ This proposal addresses the problem by adding
 
 <blockquote>
 <pre highlight="">
-template&lt;typename Operation&gt;
+template&lt;class Operation&gt;
 constexpr void resize_and_overwrite(size_type n, Operation op);
 </pre>
 <ol start="7">
@@ -704,7 +704,7 @@ Adjust the placeholder value as needed so as to denote this proposal’s date of
 
 ## [<strong>basic.string.general</strong>] ## {#basic.string.general}
 
-In [**basic.string.general**], in the synopsis, add `resize_for_overwrite`:
+In [**basic.string.general**], in the synopsis, add `resize_and_overwrite`:
 
 <blockquote>
 <pre highlight="">
@@ -715,7 +715,7 @@ In [**basic.string.general**], in the synopsis, add `resize_for_overwrite`:
     constexpr size_type max_size() const noexcept;
     constexpr void resize(size_type n, charT c);
     constexpr void resize(size_type n);
-    <ins>template&lt;typename Operation&gt;</ins>
+    <ins>template&lt;class Operation&gt;</ins>
     <ins>constexpr void resize_and_overwrite(size_type n, Operation op);</ins>
     constexpr size_type capacity() const noexcept;
     constexpr void reserve(size_type res_arg);
@@ -785,7 +785,7 @@ constexpr void resize(size_type n);
 </ol>
 
 <pre highlight=""><ins>
-template&lt;typename Operation&gt;
+template&lt;class Operation&gt;
 constexpr void resize_and_overwrite(size_type n, Operation op);
 </ins></pre>
 
@@ -883,6 +883,11 @@ We can then simplify p15:
 
 # History # {#history}
 
+## R8 &rarr; R9 ## {#R9}
+
+* Wording typos: typename -> class.
+* Fix markdown glitch in R8 history.
+
 ## R7 &rarr; R8 ## {#R8}
 
 LEWG reviewed R7 via [[April2021Telecon]]
@@ -899,7 +904,7 @@ with ship vehicle C++23, and priority B2.
 
 Attendance: 31
 
-# of Authors: 2
+Number of Authors: 2
 
 Author Position: Strongly Favor
 
