@@ -1,17 +1,17 @@
 <pre class='metadata'>
 Title: basic_string::resize_and_overwrite
-Status: P
-Shortname: P1072
+Status: D
+Shortname: D1072
 Group: WG21
-Revision: 8
+Revision: 9
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2021-06-03
+Date: 2021-08-06
 Audience: LEWG
 Audience: LWG
 Audience: SG16
 Abstract: Optimized writing of data into a basic_string.
-URL: http://wg21.link/P1072R8
+URL: http://wg21.link/P1072R9
 Markup Shorthands: markdown yes
 Default Highlight: C++
 </pre>
@@ -66,7 +66,7 @@ This proposal addresses the problem by adding
 
 <blockquote>
 <pre highlight="">
-template&lt;typename Operation&gt;
+template&lt;class Operation&gt;
 constexpr void resize_and_overwrite(size_type n, Operation op);
 </pre>
 <ol start="7">
@@ -686,7 +686,7 @@ typename thrust::detail::disable_if<
 
 # Wording # {#wording}
 
-Wording is relative to [[N4885]].
+Wording is relative to [[N4892]].
 
 Motivation for some of these edits can be found in [[#allocator]].
 
@@ -704,7 +704,7 @@ Adjust the placeholder value as needed so as to denote this proposal’s date of
 
 ## [<strong>basic.string.general</strong>] ## {#basic.string.general}
 
-In [**basic.string.general**], in the synopsis, add `resize_for_overwrite`:
+In [**basic.string.general**], in the synopsis, add `resize_and_overwrite`:
 
 <blockquote>
 <pre highlight="">
@@ -715,7 +715,7 @@ In [**basic.string.general**], in the synopsis, add `resize_for_overwrite`:
     constexpr size_type max_size() const noexcept;
     constexpr void resize(size_type n, charT c);
     constexpr void resize(size_type n);
-    <ins>template&lt;typename Operation&gt;</ins>
+    <ins>template&lt;class Operation&gt;</ins>
     <ins>constexpr void resize_and_overwrite(size_type n, Operation op);</ins>
     constexpr size_type capacity() const noexcept;
     constexpr void reserve(size_type res_arg);
@@ -723,39 +723,6 @@ In [**basic.string.general**], in the synopsis, add `resize_for_overwrite`:
     constexpr void clear() noexcept;
     [[nodiscard]] constexpr bool empty() const noexcept;
 </pre>
-</blockquote>
-
-## [<strong>string.require</strong>] ## {#string.require}
-
-In [**string.require**] clarify that `basic_string` is an
-allocator-aware container, and then add an exception for `construct`
-and `destroy`.
-
-<blockquote>
-
-3.   In every specialization `basic_string<charT, traits, Allocator>`,
-     the type `allocator_traits<Allocator>::value_type` shall name the same
-     type as `charT` <del>. Every object of type `basic_string<charT, traits,
-     Allocator>` uses an object of type `Allocator` to allocate and free
-     storage for the contained `charT` objects as needed. The Allocator object
-     used is obtained as described in [container.requirements.general]. In
-     every specialization `basic_string<charT, traits, Allocator>`</del>, <ins>
-     and</ins> the type `traits` shall satisfy the character traits
-     requirements ([char.traits]).
-
-     [*Note:* The program is ill-formed if `traits::char_type` is not
-     the same type as `charT`. &mdash; *end note*]
-
-4.   <ins> `basic_string` is an allocator-aware container as described
-     in [container.requirements.general], except that it is
-     implementation-defined whether `allocator_traits::construct` and
-     `allocator_traits::destroy` are used to construct and destroy the
-     contained `charT` objects. </ins>
-
-5.   References, pointers, and iterators referring to the elements of a
-     `basic_string` sequence may be invalidated by the following uses of that
-     `basic_string` object:<br/>...
-
 </blockquote>
 
 ## [<strong>string.capacity</strong>] ## {#string.capacity}
@@ -785,53 +752,54 @@ constexpr void resize(size_type n);
 </ol>
 
 <pre highlight=""><ins>
-template&lt;typename Operation&gt;
+template&lt;class Operation&gt;
 constexpr void resize_and_overwrite(size_type n, Operation op);
 </ins></pre>
 
 <ol start="7">
 
-<li>
-     <p><ins>*Effects:* Alters the value of `*this` as follows:
-     </ins></p>
+<li><ins>Let</ins></li>
 
-     <ul style="list-style-type:none;">
-     <li><ins>— If `n <= size()`, erases the last `size() - n`
-     elements.</ins></li>
-     <li><ins>— If `n > size()`, appends `n - size()`
-         default-initialized elements.</ins></li>
-     <li><ins>— Invokes `erase(begin() + op(data(), n), end())`.</ins></li>
-     </ul>
-</li>
-<li>
-    <p><ins>*Remarks:*</ins></p>
+<ul style="list-style-type:none;">
 
-    <p><ins>If `op` throws the behavior is undefined.</ins></p>
+<li><ins>— `o = size()` before the call to `resize_and_overwrite`.
+</ins></li>
 
-    <p><ins>Let `o = size()` before the call to
-    `resize_and_overwrite`.</ins></p>
+<li><ins>— `k` be `min(o, n)`.</ins></li>
 
-    <p><ins>Let `m = op(data(), n)`.</ins></p>
+<li><ins>— `p` be a `charT*`, such that the range `[p, p + n]` is
+valid, and `string_view(p, k) == *this` before the call. The values in
+the range `[p + k, p + n]` may be indeterminate
+[**basic.indet**].</ins></li>
 
-    <p><ins>`m <= n` otherwise the behavior is undefined.</ins></p>
+<li><ins>— `size_type r = op(p, n)`.</ins></li>
 
-    <p><ins>If `m > o`, `op` shall replace ([**expr.ass**]) the values
-    stored in the character array `[data() + o, data() + m)`. Until
-    replaced, the values may be indeterminate [**basic.indet**]
-    [*Note:* `*(data() + o)` may not be `charT()`. - *end
-    note*]</ins></p>
+</ul>
 
-    <p><ins>`op` may write to `data() + n + 1`. Any value written will be
-    replaced with `charT()` after `op` returns. [*Note:* This
-    facilitiates interoperation with functions that write a trailing
-    null. - *end note* ]</ins></p>
+<li><ins>*Preconditions:*</ins></li>
 
-    <p><ins>When `op` is called `*this` is in an unspecified state. `op`
-    shall not bind or in any way access `*this`.</ins></p>
+<ul style="list-style-type:none;">
 
-    <p><ins>`op` shall not allow its first argument to be accessible
-    after it returns.</ins></p>
-</li>
+<li><ins>— `op` does not throw an exception.</ins></li>
+
+<li><ins>— `r <= n`.</ins></li>
+
+<li><ins>— If `r > o`, `op` replaces ([**expr.ass**]) the possibly
+indeterminate values in the range `[p + o, p + r)`.</ins><li>
+
+</ul>
+
+<li><ins>*Effects:* Evaluates `op(p, n)`. Replaces the contents of
+`*this` with `[p, p + r)`.</ins></li>
+
+<li><ins>[*Note:* `op` is permitted to write to `*(p + n)`. `*(p + n)`
+may not be `charT()`. - *end note*] </ins></li>
+
+<li><ins>*Recommended practice:* Implmentations should avoid uncessary
+copies and allocations by, for example, making `p` a pointer into
+internal storage and by restoring `*(p + m)` to `charT()` after evaluating
+`op(p, n)`.</ins></li>
+
 </ol>
 
 <pre highlight="">
@@ -842,46 +810,65 @@ constexpr size_type capacity() const noexcept;
 
 ## [<strong>container.requirements.general</strong>] ## {#container}
 
-In [**container.requirements.general**] clarify the ambiguous
-"components affected by this subclause" terminology in p3. Just say
-"allocator-aware containers".
+In [**container.requirements.general**] p3 provide an explicit
+exception for `basic_string`. While we are here, switch to
+"allocator-aware" and "elements" terminology.
 
 <blockquote>
 <ol start="3">
 <li>
 
-    <ins>All of the containers defined in this Clause except `array`
-    are allocator-aware containers.</ins> <del> For the components
-    affected by this subclause that declare an allocator_type</del>
-    <ins>Objects</ins><del>objects</del> stored in <del> these
-    components </del> <ins> allocator-aware containers, unless
-    otherwise specified, </ins> shall be constructed using the
-    function
-    `allocator_traits<allocator_type>::rebind_traits<U>::construct`
-    and destroyed using the function
-    `allocator_traits<allocator_type>::rebind_traits<U>::destroy`
-    (20.10.9.3), where `U` is either `allocator_type::value_type` or
-    an internal type used by the container. ...
+<del> For the components affected by this subclause that declare an
+`allocator_type`, objects stored in these components shall be
+constructed </del> <ins> Allocator-aware containers (Table 76) other
+than `basic_string` construct elements </ins> using the function
+`allocator_traits<allocator_type>::rebind_traits<U>::construct` and
+<del> destroyed </del> <ins> destroy elements </ins> using the
+function `allocator_traits<allocator_type>::rebind_traits<U>::destroy`
+[<strong>allocator.traits.members</strong>] (20.10.8.3), where `U` is
+either `allocator_type::value_type` or an internal type used by the
+container. These functions are called only for the container’s element
+type, not for internal types used by the container.
 
 </li>
 </ol>
 </blockquote>
 
-We can then simplify p15:
+We provide a similar exception for `basic_string` in p16:
+
 <blockquote>
-<ol start="15">
+<ol start="16">
+<li>
 
-<li><del>All of the containers defined in this Clause and in 21.3.3
-    except `array` meet the additional requirements of an
-    allocator-aware container, as</del> <ins> Allocator-aware
-    containers meet the additional requirements</ins> described in
-    Table 78.</li>
+Given an allocator type `A` and given a container type `X` having a
+`value_type` identical to `T` and an `allocator_type` identical to
+`allocator_traits<A>::rebind_alloc<T>` and given an lvalue `m` of type
+`A`, a pointer `p` of type `T*`, an expression `v` of type (possibly
+`const`) `T`, and an rvalue `rv` of type `T`, the following terms are
+defined. If `X` is not allocator-aware <ins> or is a specialization of
+`basic_string` </ins>, the terms below are defined as if `A` were
+`allocator<T>` — no allocator object needs to be created and user
+specializations of `allocator<T>` are not instantiated:
 
+</li>
 </ol>
 </blockquote>
 
 
 # History # {#history}
+
+## R8 &rarr; R9 ## {#R9}
+
+* Rebased on [[N4892]].
+* Reworded [**string.capacity**] in terms of Let, Preconditions,
+  Effects, and Recommended practice.
+* In [**container.requirements.general**]
+  * Switch to simple exceptions for basic_string.
+  * Use "allocator-aware".
+  * Use "element" instead of "object".
+* Removed edits to [**string.require**].
+* Wording typos: typename -> class.
+* Fix markdown glitch in R8 history.
 
 ## R7 &rarr; R8 ## {#R8}
 
@@ -899,7 +886,7 @@ with ship vehicle C++23, and priority B2.
 
 Attendance: 31
 
-# of Authors: 2
+Number of Authors: 2
 
 Author Position: Strongly Favor
 
