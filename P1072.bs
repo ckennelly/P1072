@@ -1,7 +1,7 @@
 <pre class='metadata'>
 Title: basic_string::resize_and_overwrite
 Status: D
-Shortname: P1072
+Shortname: D1072
 Group: WG21
 Revision: 9
 Editor: Chris Kennelly, Google, ckennelly@google.com
@@ -758,47 +758,48 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
 
 <ol start="7">
 
-<li>
-     <p><ins>*Effects:* Alters the value of `*this` as follows:
-     </ins></p>
+<li><ins>Let</ins></li>
 
-     <ul style="list-style-type:none;">
-     <li><ins>— If `n <= size()`, erases the last `size() - n`
-     elements.</ins></li>
-     <li><ins>— If `n > size()`, appends `n - size()`
-         default-initialized elements.</ins></li>
-     <li><ins>— Invokes `erase(begin() + op(data(), n), end())`.</ins></li>
-     </ul>
-</li>
-<li>
-    <p><ins>*Remarks:*</ins></p>
+<ul style="list-style-type:none;">
 
-    <p><ins>If `op` throws the behavior is undefined.</ins></p>
+<li><ins>— `o = size()` before the call to `resize_and_overwrite`.
+</ins></li>
 
-    <p><ins>Let `o = size()` before the call to
-    `resize_and_overwrite`.</ins></p>
+<li><ins>— `k` be `min(o, n)`.</ins></li>
 
-    <p><ins>Let `m = op(data(), n)`.</ins></p>
+<li><ins>— `p` be a `charT*`, such that the range `[p, p + n]` is
+valid, and `string_view(p, k) == *this` before the call. The values in
+the range `[p + k, p + n]` may be indeterminate
+[**basic.indet**].</ins></li>
 
-    <p><ins>`m <= n` otherwise the behavior is undefined.</ins></p>
+<li><ins>— `size_type r = op(p, n)`.</ins></li>
 
-    <p><ins>If `m > o`, `op` shall replace ([**expr.ass**]) the values
-    stored in the character array `[data() + o, data() + m)`. Until
-    replaced, the values may be indeterminate [**basic.indet**]
-    [*Note:* `*(data() + o)` may not be `charT()`. - *end
-    note*]</ins></p>
+</ul>
 
-    <p><ins>`op` may write to `data() + n + 1`. Any value written will be
-    replaced with `charT()` after `op` returns. [*Note:* This
-    facilitiates interoperation with functions that write a trailing
-    null. - *end note* ]</ins></p>
+<li><ins>*Preconditions:*</ins></li>
 
-    <p><ins>When `op` is called `*this` is in an unspecified state. `op`
-    shall not bind or in any way access `*this`.</ins></p>
+<ul style="list-style-type:none;">
 
-    <p><ins>`op` shall not allow its first argument to be accessible
-    after it returns.</ins></p>
-</li>
+<li><ins>— `op` does not throw an exception.</ins></li>
+
+<li><ins>— `r <= n`.</ins></li>
+
+<li><ins>— If `r > o`, `op` replaces ([**expr.ass**]) the possibly
+indeterminate values in the range `[p + o, p + r)`.</ins><li>
+
+</ul>
+
+<li><ins>*Effects:* Evaluates `op(p, n)`. Replaces the contents of
+`*this` with `[p, p + r)`.</ins></li>
+
+<li><ins>[*Note:* `op` is permitted to write to `*(p + n)`. `*(p + n)`
+may not be `charT()`. - *end note*] </ins></li>
+
+<li><ins>*Recommended practice:* Implmentations should avoid uncessary
+copies and allocations by, for example, making `p` a pointer into
+internal storage and by restoring `*(p + m)` to `charT()` after evaluating
+`op(p, n)`.</ins></li>
+
 </ol>
 
 <pre highlight="">
@@ -858,6 +859,8 @@ specializations of `allocator<T>` are not instantiated:
 
 ## R8 &rarr; R9 ## {#R9}
 
+* Reworded [**string.capacity**] in terms of Let, Preconditions,
+  Effects, and Recommended practice.
 * In [**container.requirements.general**]
   * Switch to simple exceptions for basic_string.
   * Use "allocator-aware".
