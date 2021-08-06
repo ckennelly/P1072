@@ -686,7 +686,7 @@ typename thrust::detail::disable_if<
 
 # Wording # {#wording}
 
-Wording is relative to [[N4885]].
+Wording is relative to [[N4892]].
 
 Motivation for some of these edits can be found in [[#allocator]].
 
@@ -859,6 +859,7 @@ specializations of `allocator<T>` are not instantiated:
 
 ## R8 &rarr; R9 ## {#R9}
 
+* Rebased on [[N4892]].
 * Reworded [**string.capacity**] in terms of Let, Preconditions,
   Effects, and Recommended practice.
 * In [**container.requirements.general**]
