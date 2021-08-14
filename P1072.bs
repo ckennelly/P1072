@@ -763,6 +763,9 @@ that `basic_string` object:</li>
 
 ## [<strong>string.capacity</strong>] ## {#string.capacity}
 
+Note that [**string.require**] p4 has blanket wording for mutating
+operations, and [[LWG2414]] introduces blanket wording for reentrancy.
+
 In [**string.capacity**]:
 
 <blockquote>
@@ -804,26 +807,26 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
 <li><ins>— `k` be `min(o, n)`.</ins></li>
 
 <li><ins>— `p` be a `charT*`, such that the range `[p, p + n]` is
-valid and `this->compare(0, k, p, k) == 0` before the call. The values in
-the range `[p + k, p + n]` may be indeterminate
+valid and `this->compare(0, k, p, k) == 0` is `true` before the call.
+The values in the range `[p + k, p + n]` may be indeterminate
 [**basic.indet**].</ins></li>
 
-<li><ins>— `r = static_cast<size_type>op(p, n)`.</ins></li>
+<li><ins>— `r` = `op(p, n)`.</ins></li>
 
 </ul>
 
-<li><ins>*Mandates:* `op(p, n)` has an integer-like type type
+<li><ins>*Mandates:* `op(p, n)` has an integer-like type
 ([**iterator.concept.winc**]).</ins></li>
 
 <li><ins>*Preconditions:*</ins></li>
 
 <ul style="list-style-type:none;">
 
-<li><ins>— `op(p, n)` does not modify `p` or `n`.</ins></li>
-
 <li><ins>— `op(p, n)` does not throw an exception.</ins></li>
 
-<li><ins>— `r <= n`.</ins></li>
+<li><ins>— `r` &#x2265 `0`.</ins></li>
+
+<li><ins>— `r` &#x2264 `n`.</ins></li>
 
 <li><ins>— After evaluating `op(p, n)` there are no indeterminate
 values in the range `[p, p + r)`.
@@ -834,7 +837,7 @@ values in the range `[p, p + r)`.
 `*this` with `[p, p + r)`, and invalidates all pointers and references
 to the range `[p, p + n]`.</ins></li>
 
-<li><ins>*Recommended practice:* Implmentations should avoid uncessary
+<li><ins>*Recommended practice:* Implementations should avoid unnecessary
 copies and allocations by, for example, making `p` a pointer into
 internal storage and by restoring `*(p + r)` to `charT()` after evaluating
 `op(p, n)`.</ins></li>
@@ -899,13 +902,15 @@ specializations of `allocator<T>` are not instantiated:
 ## R8 &rarr; R9 ## {#R9}
 
 * Rebased on [[N4892]].
-* Reworded [**string.capacity**] in terms of Let, Preconditions,
-  Effects, and Recommended practice.
+* In [**string.capacity**]
+    * Added a pointer to [[LWG2414]].
+    * Reworded in terms of Let, Mandates,
+      Preconditions, Effects, and Recommended practice.
 * In [**container.requirements.general**]
-  * Switch to simple exceptions for basic_string.
-  * Use "allocator-aware".
-  * Use "element" instead of "object".
-* Removed edits to [**string.require**].
+    * Use simple (wording) exceptions for basic_string.
+    * Use "allocator-aware".
+    * Use "element" instead of "object".
+* Add only Note in [**string.require**], removing normative changes.
 * Wording typos: typename -> class.
 * Fix markdown glitch in R8 history.
 
