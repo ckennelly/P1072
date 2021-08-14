@@ -837,6 +837,11 @@ values in the range `[p, p + r)`.
 `*this` with `[p, p + r)`, and invalidates all pointers and references
 to the range `[p, p + n]`.</ins></li>
 
+<li><ins>After `resize_and_overwrite()`, `capacity()` is greater than
+or equal to `n` if reallocation happens; and equal to the previous
+value of `capacity()` otherwise. Reallocation happens at this point if
+and only if the current capacity is less than `n`.</ins></li>
+
 <li><ins>*Recommended practice:* Implementations should avoid unnecessary
 copies and allocations by, for example, making `p` a pointer into
 internal storage and by restoring `*(p + r)` to `charT()` after evaluating
@@ -906,6 +911,7 @@ specializations of `allocator<T>` are not instantiated:
     * Added a pointer to [[LWG2414]].
     * Reworded in terms of Let, Mandates,
       Preconditions, Effects, and Recommended practice.
+    * Added requirements for allocation and capacity.
 * In [**container.requirements.general**]
     * Use simple (wording) exceptions for basic_string.
     * Use "allocator-aware".
