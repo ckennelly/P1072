@@ -1,12 +1,12 @@
 <pre class='metadata'>
 Title: basic_string::resize_and_overwrite
-Status: D
-Shortname: D1072
+Status: P
+Shortname: P1072
 Group: WG21
 Revision: 9
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2021-08-06
+Date: 2021-08-14
 Audience: LEWG
 Audience: LWG
 Audience: SG16
@@ -725,7 +725,46 @@ In [**basic.string.general**], in the synopsis, add `resize_and_overwrite`:
 </pre>
 </blockquote>
 
+## [<strong>string.require</strong>] ## {#string.require}
+
+Add a note to [**string.require**]:
+
+<blockquote>
+<ol start="3">
+
+<li>
+
+In every specialization `basic_string<charT, traits, Allocator>`, the
+type `allocator_traits<Allocator>::value_type` shall name the same
+type as `charT`. Every object of type `basic_string<charT, traits,
+Allocator>` uses an object of type `Allocator` to allocate and free
+storage for the contained `charT` objects as needed. The `Allocator`
+object used is obtained as described in 22.2.1. In every
+specialization `basic_string<charT, traits, Allocator>`, the type
+`traits` shall meet the character traits requirements (21.2).
+
+<p><ins> [*Note 1:* Every specialization `basic_string<charT, traits,
+Allocator>` is an allocator-aware container, but does not use the
+allocator's `construct` and `destroy` member functions.
+([**container.requirements.general**]). — *end note*]</ins></p>
+
+<p>[*Note <del>1</del><ins>2</ins>:* The program is ill-formed if
+`traits::char_type` is not the same type as charT. — *end note*]</p>
+
+</li>
+
+<li> References, pointers, and iterators referring to the elements of
+a `basic_string` sequence may be invalidated by the following uses of
+that `basic_string` object:</li>
+
+</ol>
+</blockquote>
+
+
 ## [<strong>string.capacity</strong>] ## {#string.capacity}
+
+Note that [**string.require**] p4 has blanket wording for mutating
+operations, and [[LWG2414]] introduces blanket wording for reentrancy.
 
 In [**string.capacity**]:
 
@@ -768,36 +807,44 @@ constexpr void resize_and_overwrite(size_type n, Operation op);
 <li><ins>— `k` be `min(o, n)`.</ins></li>
 
 <li><ins>— `p` be a `charT*`, such that the range `[p, p + n]` is
-valid, and `string_view(p, k) == *this` before the call. The values in
-the range `[p + k, p + n]` may be indeterminate
+valid and `this->compare(0, k, p, k) == 0` is `true` before the call.
+The values in the range `[p + k, p + n]` may be indeterminate
 [**basic.indet**].</ins></li>
 
-<li><ins>— `size_type r = op(p, n)`.</ins></li>
+<li><ins>— `r` = `op(p, n)`.</ins></li>
 
 </ul>
+
+<li><ins>*Mandates:* `op(p, n)` has an integer-like type
+([**iterator.concept.winc**]).</ins></li>
 
 <li><ins>*Preconditions:*</ins></li>
 
 <ul style="list-style-type:none;">
 
-<li><ins>— `op` does not throw an exception.</ins></li>
+<li><ins>— `op(p, n)` does not throw an exception.</ins></li>
 
-<li><ins>— `r <= n`.</ins></li>
+<li><ins>— `r` &#x2265 `0`.</ins></li>
 
-<li><ins>— If `r > o`, `op` replaces ([**expr.ass**]) the possibly
-indeterminate values in the range `[p + o, p + r)`.</ins><li>
+<li><ins>— `r` &#x2264 `n`.</ins></li>
+
+<li><ins>— After evaluating `op(p, n)` there are no indeterminate
+values in the range `[p, p + r)`.
 
 </ul>
 
-<li><ins>*Effects:* Evaluates `op(p, n)`. Replaces the contents of
-`*this` with `[p, p + r)`.</ins></li>
+<li><ins>*Effects:* Evaluates `op(p, n)`, replaces the contents of
+`*this` with `[p, p + r)`, and invalidates all pointers and references
+to the range `[p, p + n]`.</ins></li>
 
-<li><ins>[*Note:* `op` is permitted to write to `*(p + n)`. `*(p + n)`
-may not be `charT()`. - *end note*] </ins></li>
+<li><ins>After `resize_and_overwrite()`, `capacity()` is greater than
+or equal to `n` if reallocation happens; and equal to the previous
+value of `capacity()` otherwise. Reallocation happens at this point if
+and only if the current capacity is less than `n`.</ins></li>
 
-<li><ins>*Recommended practice:* Implmentations should avoid uncessary
+<li><ins>*Recommended practice:* Implementations should avoid unnecessary
 copies and allocations by, for example, making `p` a pointer into
-internal storage and by restoring `*(p + m)` to `charT()` after evaluating
+internal storage and by restoring `*(p + r)` to `charT()` after evaluating
 `op(p, n)`.</ins></li>
 
 </ol>
@@ -860,13 +907,16 @@ specializations of `allocator<T>` are not instantiated:
 ## R8 &rarr; R9 ## {#R9}
 
 * Rebased on [[N4892]].
-* Reworded [**string.capacity**] in terms of Let, Preconditions,
-  Effects, and Recommended practice.
+* In [**string.capacity**]
+    * Added a pointer to [[LWG2414]].
+    * Reworded in terms of Let, Mandates,
+      Preconditions, Effects, and Recommended practice.
+    * Added requirements for allocation and capacity.
 * In [**container.requirements.general**]
-  * Switch to simple exceptions for basic_string.
-  * Use "allocator-aware".
-  * Use "element" instead of "object".
-* Removed edits to [**string.require**].
+    * Use simple (wording) exceptions for basic_string.
+    * Use "allocator-aware".
+    * Use "element" instead of "object".
+* Add only Note in [**string.require**], removing normative changes.
 * Wording typos: typename -> class.
 * Fix markdown glitch in R8 history.
 
