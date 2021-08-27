@@ -824,7 +824,8 @@ The values in the range `[p + k, p + n]` may be indeterminate
 
 <ul style="list-style-type:none;">
 
-<li><ins>— <em>`OP`</em> does not throw an exception.</ins></li>
+<li><ins>— <em>`OP`</em> does not throw an exception or modify `p` or
+`n`.</ins></li>
 
 <li><ins>— `r` &#x2265 `0`.</ins></li>
 
@@ -911,6 +912,7 @@ specializations of `allocator<T>` are not instantiated:
 * In [**string.capacity**]
     * Wrapped `op` in `std::move` and introduced the pseudo macro
       <em>`OP`</em>.
+    * Add Precondition that <em>`OP`</em> not modify `p` or `n`.
 
 ## R8 &rarr; R9 ## {#R9}
 
