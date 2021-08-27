@@ -811,29 +811,31 @@ valid and `this->compare(0, k, p, k) == 0` is `true` before the call.
 The values in the range `[p + k, p + n]` may be indeterminate
 [**basic.indet**].</ins></li>
 
-<li><ins>— `r` = `op(p, n)`.</ins></li>
+<li><ins>— <em>`OP`</em> be the expresion `std::move(op)(p, n)`.
+
+<li><ins>— `r` = <em>`OP`</em>.</ins></li>
 
 </ul>
 
-<li><ins>*Mandates:* `op(p, n)` has an integer-like type
+<li><ins>*Mandates:* <em>`OP`</em> has an integer-like type
 ([**iterator.concept.winc**]).</ins></li>
 
 <li><ins>*Preconditions:*</ins></li>
 
 <ul style="list-style-type:none;">
 
-<li><ins>— `op(p, n)` does not throw an exception.</ins></li>
+<li><ins>— <em>`OP`</em> does not throw an exception.</ins></li>
 
 <li><ins>— `r` &#x2265 `0`.</ins></li>
 
 <li><ins>— `r` &#x2264 `n`.</ins></li>
 
-<li><ins>— After evaluating `op(p, n)` there are no indeterminate
+<li><ins>— After evaluating <em>`OP`</em> there are no indeterminate
 values in the range `[p, p + r)`.
 
 </ul>
 
-<li><ins>*Effects:* Evaluates `op(p, n)`, replaces the contents of
+<li><ins>*Effects:* Evaluates <em>`OP`</em>, replaces the contents of
 `*this` with `[p, p + r)`, and invalidates all pointers and references
 to the range `[p, p + n]`.</ins></li>
 
@@ -845,7 +847,7 @@ and only if the current capacity is less than `n`.</ins></li>
 <li><ins>*Recommended practice:* Implementations should avoid unnecessary
 copies and allocations by, for example, making `p` a pointer into
 internal storage and by restoring `*(p + r)` to `charT()` after evaluating
-`op(p, n)`.</ins></li>
+<em>`OP`</em>.</ins></li>
 
 </ol>
 
@@ -905,6 +907,10 @@ specializations of `allocator<T>` are not instantiated:
 # History # {#history}
 
 ## R9 &rarr; R10 ## {#R10}
+
+* In [**string.capacity**]
+    * Wrapped `op` in `std::move` and introduced the pseudo macro
+      <em>`OP`</em>.
 
 ## R8 &rarr; R9 ## {#R9}
 
