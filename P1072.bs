@@ -1,17 +1,17 @@
 <pre class='metadata'>
 Title: basic_string::resize_and_overwrite
-Status: P
-Shortname: P1072
+Status: D
+Shortname: D1072
 Group: WG21
-Revision: 9
+Revision: 10
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2021-08-14
+Date: 2021-08-27
 Audience: LEWG
 Audience: LWG
 Audience: SG16
 Abstract: Optimized writing of data into a basic_string.
-URL: http://wg21.link/P1072R9
+URL: http://wg21.link/P1072R10
 Markup Shorthands: markdown yes
 Default Highlight: C++
 </pre>
@@ -811,41 +811,39 @@ valid and `this->compare(0, k, p, k) == 0` is `true` before the call.
 The values in the range `[p + k, p + n]` may be indeterminate
 [**basic.indet**].</ins></li>
 
-<li><ins>— `r` = `op(p, n)`.</ins></li>
+<li><ins>— <em>`OP`</em> be the expresion `std::move(op)(p, n)`.
+
+<li><ins>— `r` = <em>`OP`</em>.</ins></li>
 
 </ul>
 
-<li><ins>*Mandates:* `op(p, n)` has an integer-like type
+<li><ins>*Mandates:* <em>`OP`</em> has an integer-like type
 ([**iterator.concept.winc**]).</ins></li>
 
 <li><ins>*Preconditions:*</ins></li>
 
 <ul style="list-style-type:none;">
 
-<li><ins>— `op(p, n)` does not throw an exception.</ins></li>
+<li><ins>— <em>`OP`</em> does not throw an exception or modify `p` or
+`n`.</ins></li>
 
 <li><ins>— `r` &#x2265 `0`.</ins></li>
 
 <li><ins>— `r` &#x2264 `n`.</ins></li>
 
-<li><ins>— After evaluating `op(p, n)` there are no indeterminate
+<li><ins>— After evaluating <em>`OP`</em> there are no indeterminate
 values in the range `[p, p + r)`.
 
 </ul>
 
-<li><ins>*Effects:* Evaluates `op(p, n)`, replaces the contents of
+<li><ins>*Effects:* Evaluates <em>`OP`</em>, replaces the contents of
 `*this` with `[p, p + r)`, and invalidates all pointers and references
 to the range `[p, p + n]`.</ins></li>
-
-<li><ins>After `resize_and_overwrite()`, `capacity()` is greater than
-or equal to `n` if reallocation happens; and equal to the previous
-value of `capacity()` otherwise. Reallocation happens at this point if
-and only if the current capacity is less than `n`.</ins></li>
 
 <li><ins>*Recommended practice:* Implementations should avoid unnecessary
 copies and allocations by, for example, making `p` a pointer into
 internal storage and by restoring `*(p + r)` to `charT()` after evaluating
-`op(p, n)`.</ins></li>
+<em>`OP`</em>.</ins></li>
 
 </ol>
 
@@ -903,6 +901,14 @@ specializations of `allocator<T>` are not instantiated:
 
 
 # History # {#history}
+
+## R9 &rarr; R10 ## {#R10}
+
+* In [**string.capacity**]
+    * Wrapped `op` in `std::move` and introduced the pseudo macro
+      <em>`OP`</em>.
+    * Add Precondition that <em>`OP`</em> not modify `p` or `n`.
+    * Removed requirements for allocation and capacity (added in R9).
 
 ## R8 &rarr; R9 ## {#R9}
 
