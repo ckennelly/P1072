@@ -1,12 +1,12 @@
 <pre class='metadata'>
 Title: basic_string::resize_and_overwrite
-Status: D
-Shortname: D1072
+Status: P
+Shortname: P1072
 Group: WG21
 Revision: 10
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2021-08-27
+Date: 2021-09-14
 Audience: LEWG
 Audience: LWG
 Audience: SG16
