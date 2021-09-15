@@ -1,0 +1,1151 @@
+<pre class='metadata'>
+Title: basic_string::resize_and_overwrite
+Status: P
+Shortname: P1072
+Group: WG21
+Revision: 10
+Editor: Chris Kennelly, Google, ckennelly@google.com
+Editor: Mark Zeren, VMware, mzeren@vmware.com
+Date: 2021-09-14
+Audience: LEWG
+Audience: LWG
+Audience: SG16
+Abstract: Optimized writing of data into a basic_string.
+URL: http://wg21.link/P1072R10
+Markup Shorthands: markdown yes
+Default Highlight: C++
+</pre>
+
+# Motivation # {#mot}
+
+Performance sensitive code is impacted by the cost of initializing and
+manipulating strings. When writing data into a `basic_string`, a
+programmer is faced with an unhappy choice:
+
+* **Pay for extra initialization** &mdash; `resize`, which zero
+    initializes, followed by copy.
+
+* **Pay for extra copies** &mdash; Populate a temporary buffer, copy
+    it to the string.
+
+* **Pay for extra "bookkeeping"** &mdash; `reserve` followed by small
+    appends, each of which checks capacity and null terminates.
+
+The effects of these unhappy choices can all be measured at scale, yet
+C++'s hallmark is to leave no room between the language (or in this
+case the library) and another language.
+
+LEWGI polled on this at the [[SAN]] Meeting:
+
+<blockquote>
+We should promise more committee time to [[P1072R1]], knowing that our
+time is scarce and this will leave less time for other work?
+<br/>*Unanimous consent*
+</blockquote>
+
+LEWG at the [[SAN]] Meeting:
+
+<blockquote>
+We want to solve this problem
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>17</td><td>5</td><td>0</td><td>0</td><td>0</td></tr>
+</table>
+
+Willing to solve this for string without solving it for vector
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>6</td><td>9</td><td>2</td><td>1</td><td>0</td></tr>
+</table>
+</blockquote>
+
+# Proposal # {#proposal}
+
+This proposal addresses the problem by adding
+`basic_string::resize_and_overwrite`:
+
+<blockquote>
+<pre highlight="">
+template&lt;class Operation&gt;
+constexpr void resize_and_overwrite(size_type n, Operation op);
+</pre>
+<ol start="7">
+
+<li>
+     <p>*Effects:* Alters the value of `*this` as follows:</p>
+
+     <ul style="list-style-type:none;">
+     <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
+     <li>— If `n > size()`, appends `n - size()`
+         default-initialized elements.</li>
+     <li>— Invokes `erase(begin() + op(data(), n), end())`.</li>
+     </ul>
+</li>
+<li>
+    <p>*Remarks:*</p>
+
+    <p>If `op` throws the behavior is undefined.</p>
+
+    <p>Let `o = size()` before the call to
+    `resize_and_overwrite`.</p>
+
+    <p>Let `m = op(data(), n)`.</p>
+
+    <p>`m <= n` otherwise the behavior is undefined.</p>
+
+    <p>If `m > o`, `op` shall replace ([**expr.ass**]) the values
+    stored in the character array `[data() + o, data() + m)`. Until
+    replaced, the values may be indeterminate [**basic.indet**]
+    [*Note:* `*(data() + o)` may not be `charT()`. - *end
+    note*]</p>
+
+    <p>`op` may write to `data() + n + 1`. Any value written will be
+    replaced with `charT()` after `op` returns. [*Note:* This
+    facilitiates interoperation with functions that write a trailing
+    null. - *end note* ]</p>
+
+    <p>When `op` is called `*this` is in an unspecified state. `op`
+    shall not bind or in any way access `*this`.</p>
+
+    <p>`op` shall not allow its first argument to be accessible
+    after it returns.</p>
+</li>
+</ol>
+</blockquote>
+
+In order to enable `resize_and_overwrite`, this proposal makes it
+implementation-defined whether `basic_string` uses
+`allocator_traits::construct` and `allocator_traits::destroy` to
+construct and destroy the "char-like objects" that it controls. See
+[[#allocator]] and [[#wording]] below for more details.
+
+# Implementation # {#impl}
+
+`libc++` includes a private implementation of a prior version of this
+proposal (based on an earlier revision) and uses it to avoid a dynamic
+allocation in `std::filesystem` [[LIBC++]].
+
+# Examples # {#examples}
+
+## Stamping a Pattern ## {#pattern}
+
+Consider writing a pattern several times into a string:
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::string ret;
+
+   ret.reserve(pattern.size() * count);
+   for (size_t i = 0; i < count; i++) {
+     // SUB-OPTIMAL:
+     // * Writes 'count' nulls
+     // * Updates size and checks for potential resize 'count' times
+     ret.append(pattern);
+   }
+
+   return ret;
+}
+</xmp>
+
+Alternatively, we could adjust the output string’s size to its final size,
+avoiding the bookkeeping in `append` at the cost of extra initialization:
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::string ret;
+
+   const auto step = pattern.size();
+   // SUB-OPTIMAL: We memset step*count bytes only to overwrite them.
+   ret.resize(step * count);
+   for (size_t i = 0; i < count; i++) {
+     // GOOD: No bookkeeping
+     memcpy(ret.data() + i * step, pattern.data(), step);
+   }
+
+   return ret;
+}
+</xmp>
+
+With this proposal:
+
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::string ret;
+
+   const auto step = pattern.size();
+   // GOOD: No initialization
+   ret.resize_and_overwrite(step * count, [&](char* buf, size_t n) {
+       for (size_t i = 0; i < count; i++) {
+         // GOOD: No bookkeeping
+         memcpy(buf + i * step, pattern.data(), step);
+       }
+       return step * count;
+   });
+
+   return ret;
+}
+</xmp>
+
+## Interacting with C ## {#c}
+
+Consider wrapping a C API while working in terms of C++'s `basic_string`
+vocabulary.  We *anticipate* over-allocating, as computation of the *length* of
+the data is done simultaneously with the computation of the *contents*.
+
+<xmp>
+extern "C" {
+  int compress(void* out, size_t* out_size, const void* in, size_t in_size);
+  size_t compressBound(size_t bound);
+}
+
+std::string CompressWrapper(std::string_view input) {
+    std::string compressed;
+    // Compute upper limit of compressed input.
+    size_t size = compressBound(input.size());
+
+    // SUB-OPTIMAL: Extra initialization
+    compressed.resize(size);
+    int ret = compress(&*compressed.begin(), &size, input.data(), input.size());
+    if (ret != OK) {
+      throw ...some error...
+    }
+
+    // Set actual size.
+    compressed.erase(size);
+    return compressed;
+}
+</xmp>
+
+With this proposal:
+
+<xmp>
+extern "C" {
+  int compress(void* out, size_t* out_size, const void* in, size_t in_size);
+  size_t compressBound(size_t bound);
+}
+
+std::string CompressWrapper(std::string_view input) {
+    std::string compressed;
+    // Compute upper limit of compressed input.
+    size_t bound = compressBound(input.size());
+    int ret;
+
+    // GOOD: No initialization
+    compressed.resize_and_overwrite(bound, [&](char* buf, size_t n) {
+        size_t compressed_size = n;
+        ret = compress(buf, &out_size, input.data(), input.size());
+        return compressed_size;
+    });
+    if (ret != OK) {
+       throw ...some error...
+    }
+    return compressed;
+}
+</xmp>
+
+# Design Considerations # {#design}
+
+## Method vs. Alternatives
+
+During the [[SAN]] Meeting LEWG expressed a preference for
+implementing this functionality as a new method on `basic_string` (as
+proposed in [[P1072R0]]) rather than a standalone "storage buffer"
+type (one option in [[P1072R1]]):
+
+<blockquote>
+Method on string vs storage_buffer type:
+<table>
+<tr><th>Strong Method</th><th>Method</th><th>Neutral</th><th>Type</th><th>Strong Type</th></tr>
+<td>9</td><td>2</td><td>3</td><td>2</td><td>2</td></tr>
+</table>
+</blockquote>
+
+During the [[KOA]] Meeting, LEWG expressed a preference for not weakening
+`basic_string`'s invariants after `resize_and_overwrite` returns.  Under this
+revision:
+
+*   A default-initialized buffer is *only* accessible to `op`.
+*   Under penalty of undefined behavior, `op` must assign (replace) the
+    values in resulting buffer. The default initialized portion (`[data()+m,
+    data()+n)`) above is erased and inaccessible to the program without further
+    violation of class invariants.
+*   This proposal follows the "lambda" option discussed in [[SAN]].
+
+Several other alternatives were discussed at [[SAN]], [[KOA]], and on the
+reflector.  Please see [[#alternatives]] below for more details.
+
+## Allocator Interaction ## {#allocator}
+
+Unlocking the desired optimizations requires *some* change to
+`basic_string`'s interaction with allocators. This proposal does what
+we think is the simplest possible change: remove the requirement that
+`basic_string` call `allocator_traits::construct` or
+`allocator_traits::destroy`.
+
+This restriction should be acceptable because `basic_string` is
+defined to only hold "non-array trivial standard-layout" types.
+[**strings.general**] p1:
+
+<blockquote>
+
+This Clause describes components for manipulating sequences of any
+non-array trivial standard-layout (6.7) type. Such types are called
+*char-like types*, and objects of *char-like types* are *called
+char-like objects* or simply *characters*.
+
+</blockquote>
+
+Removing calls to `construct` and `destroy` is compatible with
+`pmr::basic_string` as long as `uses_allocator_v<charT>` is `false`,
+which should be the case in practice.
+
+Along the way, this proposal clarifies ambiguous language in
+[**string.require**] and [**container.requirements.general**] by:
+
+*   Stating explicitly that `basic_string` is allocator-aware.
+
+*   Introducing the term "allocator-aware" earlier in
+    [**container.requirements.general**].
+
+*   Not attempting to mention other "components" in
+    [**container.requirements.general**]. The other allocator-aware containers
+    (just `basic_string` and `regex::match_results`?) can independently state
+    that they are "allocator-aware" in their own clauses.
+
+libstdc++ and msvc allow strings of non-trivial type. That might force
+those libraries to continue to support `construct` and `destroy` as
+"extensions". On the other hand, libc++ disallows non-trivial
+`charT`s, so any such extensions are non-portable. See [godbolt.org](
+https://godbolt.org/#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAKxAEZSAbAQwDtRkBSAJgCFufSAZ1QBXYskwgA5NwDMeFsgYisAag6yAwoILEFwDdg4AGAIInTO9CBAAjJoLzIA%2Bjr1sN2gtZBv9h1QAzVFQIAEp1AHY%2BM1U41Ssbe0cXPw8tRN9df1lsBI0Y03iEgDpiTEcAL0wILjCCi2LygjEWfNlCjkiAEQspMMZpAFYpUhZpY1HUaU1%2BfgTRcUx1LllaUYIJ/oGAaxBVksiATgAOABYzgDYuE64rs9pLy8GpM9HxqUnSaalRwRBjKRNp9%2BqQ4LAYIgUKgALYABzwDEwZAoEDQ8MRyJQzDYzl0IhYO1IgURBGR/wgti2pFsCiYxAAntJ1qR0TDMCwCAB5FgMJkg0hYGGsYBI6n4crIAh4ABuFWpmAAHphkCIyczRgoyQwNUC9DCtgMcew5rxGHhbP9IANUHDpagWP8pABaKwMC0abru2ycXj8P6LCR0I3Dd7Un6Kk6XZ2XM6qJQi1QQfGEiIQXCEEgrNakVSaWEIpHEbO0CKzP28DaG3YgIZHEpHSKRO60c6RIa0SLGWRDF5vUgGoaAj5fH5/AFAw1gyEQJCiAhwtXkSjowtY%2BiYfBEYh0UgAd2ITDhGpDUhGY3D0jktFUe8ICFUkejsfjxqTKZ2YSrILCAwQmCYLAd3CPtRkHYdL1%2BIQJ2BSZf1IPYDi4Otbi4LgjlkM4hlkI4zheWQwwFMdJx/ad4HBKFV0xFEVwLaiQGAQQWCPQQEFQAhiVJclKCpAVaWYxldTZDluV5fkviFEUxQFCUVWlOUnS%2BJUVTVSQpBZLVMB1dSNn1KdjRQU0BG9K0QNte1HWkAMxCDUsXnPEcpmkJ8YzjYBkGQd9iAJT8kwzbcS1zfMMSLbM6jzIzvzgv8AKAygazuEoTlodDaDS44TiOdCuFAgdawgoirOgwFYNBCjZxAedFw41EqKLfZSE3TMd3oA8jxPezCNHK9Vi4W970fKNXNUdzPOTbzUyi7ZSH/QCsRA7T%2B3Ai9Cqg/4SurBD9iGEorijG5uzOSIjtjfCuqcqDSoGcqZyQOrkWXNE6PqqQZWQOE4WcGVaCOZxaCGZwIBlQQ/oBk4wmcRVY1GEkGDJYgKV4r5%2BPpfkWWEzkeT5cVMGFNhpIkvBJXk%2BUBWU1V1R08hOS03VsgNUiDN9PgzRM%2BAbTtPAHSdaylmDTqVu6qQobjGFBDe1Rvvrf6kwANQAZVUf6krTfys2vILnuRbNZDLSKSOimbYvmmtaDOEocJOYxjCGS5ZG7S4TiGVZcuWxzviK9aDbK27KrVarHvundZEarcSF3Nrjx008HMguRZH6ggHxF1QxYlqWShliAFaVnbwam%2BDZrihbpCW/LBYu8cNp/BLIl2yI1m7WRMtkTDkOebSCIrj3Ls27SuHOnuC4GOUEa58YziAA%3D%3D%3D).
+
+## Undefined Behavior ## {#UB}
+
+`resize_and_overwrite` exposes users to UB if they read indeterminate
+([**basic.indet**]) values in the string buffer passed to `op`. Despite
+this foot-gun, `resize_and_overwrite` is appealing because:
+
+*   Uninitialized buffers are not uncommon in C++. See for example `new
+    T[20]` or the recently adopted `make_unique_for_overwrite`.
+
+*   Dynamic analyzers like Memory Sanitizer [[MSan]] and Valgrind
+    [[Valgrind]] can catch uninitialized reads.
+
+The version of this proposal seen by LEWG in [[Cologne]] throws
+`std::range_error` when `op` returns a value greater than `n`. The authors now
+recommend and LEWG confirmed via [[LEWGNovTelecon]] to use UB.  For the `op` to
+have written greater than `n` bytes, it would have had to overrun the provided
+buffer (already UB).
+
+The authors further recommend UB if `op` were to throw.
+`resize_and_overwrite` is motivated by measured performance
+improvements that are small individually but significant at scale.
+Providing exception guarantees would incur overhead that is in tension
+with the original motivation.
+
+## Bikeshedding ## {#bikeshed}
+
+What do we want to call this method?
+
+*   `resize_and_overwrite` (as proposed). This is consistent with
+    `make_unique_for_overwrite` [[P1973R1]].  Unlike the `make_unique` version,
+    this concludes with the buffer being overwritten (as far as `op`
+    specifies), rather than requiring further action be taken.
+
+*   `resize_default_init` (as proposed). This is consistent with
+    `make_unique_default_init` [[P1020R1]], adopted in San Diego.  This name
+    was removed from the working paper subsequently and renaemd
+    `make_unique_for_overwrite`.
+
+*   `resize_uninitialized` (as proposed in R0). "Uninitialized" is
+    different from "default-initialized", which is what we want to specify.
+    Also, `uninitialized` is already used elsewhere in the Library to mean "not
+    constructed at all", as in `uninitialized_copy`; so this would be an
+    overloading of the term.
+
+# Alternatives Considered # {#alternatives}
+
+## Tag Type ## {#tag}
+
+At the [[SAN]] Meeting, LEWG showed support for a tag argument type:
+
+<blockquote>
+Approval (vote for as many as you find acceptable)
+<table>
+<tr><td>13 </td><td>**Go back to resize_uninitialized**</td></tr>
+<tr><td>15 </td><td>**Do tag type (default_initialize) for c'tor / resize()**</td></tr>
+<tr><td>12 </td><td>**Continue with storage_buffer (as per R2 of this paper)**</td></tr>
+<tr><td> 7 </td><td>**Crack open with a lambda**</td></tr>
+<tr><td> 7 </td><td>**RAII separate type**</td></tr>
+</table>
+</blockquote>
+
+For example:
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   const auto step = pattern.size();
+
+   // GOOD:  No initialization
+   std::string ret(step * count, std::string::default_init);
+   for (size_t i = 0; i < count; i++) {
+     // GOOD: No bookkeeping
+     memcpy(ret.data() + i * step, pattern.data(), step);
+   }
+
+   return ret;
+}
+</xmp>
+
+Benefits:
+
+*   A constructor that takes a tag type simplifies some use cases, like
+    the example above.
+
+*   Matches existing practice in Boost. See [[#boost]].
+
+Drawbacks:
+
+*   Feature creep / complexity — A tag type invites generalizing for all
+    allocator-aware container types. We agree that this is desirable and even
+    has implementation experience in Boost. However default initialization is
+    not enough. There is also "implicit construction" (see [[P1010R1]],
+    [[P0593R2]]) and "relocation" (see [[P1144R0]], [[P1029R1]]). Neither of
+    these features are yet in the language. It is too early to generalize. Note
+    that the second poll quoted in [[#mot]] shows support for solving this
+    problem for `[basic_]string` but not `vector`.
+
+*   In reflector discussion of `make_unique_default_init` [[Zero]],
+    there was a preference for avoiding tag types. The standard library has
+    `copy_backward`, not `copy` with a tag, and `count_if`, rather than `count`
+    with a predicate.
+
+Conclusion:
+
+LEWG should explore tags for allocator-aware containers, but that work
+should not block near-term enablement of efficient [std::]string
+builders.
+
+## Non-Lambda Approach ## {#nonlambda}
+
+In [[P1072R0]] and [[P1072R3]] of this proposal, the authors considered a
+method `resize_default_init` / `resize_uninitialized` which left a
+default-initialized buffer accessible to users of the `basic_string` instance
+after the method returned.  This method was rejected in [[KOA]], due to the
+weakened class invariants.
+
+For illustration:
+
+<xmp>
+extern "C" {
+  int compress(void* out, size_t* out_size, const void* in, size_t in_size);
+  size_t compressBound(size_t bound);
+}
+
+std::string CompressWrapper(std::string_view input) {
+    std::string compressed;
+    // Compute upper limit of compressed input.
+    size_t size = compressBound(input.size());
+
+    // GOOD: No initialization
+    compressed.resize_default_init(size);
+    int ret = compress(&*compressed.begin(), &size, input.data(), input.size());
+    if (ret != OK) {
+      throw ...some error...
+    }
+
+    // Suppose size is the value of size before the call to compress and size'
+    // is the value of size after the call to compress.
+    //
+    // If size' < size, then:
+    //   std::cout << compressed[size' + 1]
+    // ...triggers a read of uninitialized data.
+
+    // Set actual size.
+    compressed.erase(size);
+    return compressed;
+}
+</xmp>
+
+
+
+## Standalone Type:  `storage_buffer` ## {#buffer}
+
+In [[P1072R1]], we considered `storage_buffer`, a standalone type
+providing a `prepare` method (similar to the `resize_uninitialized` method
+proposed here) and `commit` (to promise, under penalty of UB, that the
+buffer had been initialized).
+
+At the [[SAN]] Meeting, this approach received support from LEWGI in light of
+the [[post-Rapperswil]] email review indicating support for a distinct type.
+This approach was rejected by the larger LEWG room in San Diego Meeting Diego.
+
+The proposed type would be move-only.
+
+<xmp>
+std::string GeneratePattern(const std::string& pattern, size_t count) {
+   std::storage_buffer<char> tmp;
+
+   const auto step = pattern.size();
+   // GOOD:  No initialization
+   tmp.prepare(step * count + 1);
+   for (size_t i = 0; i < count; i++) {
+     // GOOD: No bookkeeping
+     memcpy(tmp.data() + i * step, pattern.data(), step);
+   }
+
+   tmp.commit(step * count);
+   return std::string(std::move(tmp));
+}
+</xmp>
+
+For purposes of the container API, `size()` corresponds to the *committed*
+portion of the buffer.  This leads to more consistency when working with (and
+explicitly copying to) other containers via iterators, for example:
+
+<xmp>
+    std::storage_buffer<char> buf;
+    buf.prepare(100);
+    *fill in data*
+    buf.commit(50);
+
+    std::string a(buf.begin(), buf.end());
+    std::string b(std::move(buf));
+
+    assert(a == b);
+</xmp>
+
+Benefits:
+*   By being move-only, we would not have the risk of copying types with
+    trap representations (thereby triggering UB).
+*   Uninitialized data is only accessible from the `storage_buffer` type.
+    For an API working with `basic_string`, no invariants are weakened.
+    Crossing an API boundary with a `storage_buffer` is much more obvious than
+    a "`basic_string` with possibly uninitialized data."  Uninitialized bytes
+    (the promise made by `commit`) never escape into the valid range of
+    `basic_string`.
+
+Drawbacks:
+*   `storage_buffer` requires introducing an extra type to the standard
+    library, even though its novel functionality (from `string` and
+    `vector`) is limited to the initialization abilities.
+*   `basic_string` is often implemented with a short-string optimization (SSO) and an extra type would need to implement that (likely by additional checks when moving to/from the `storage_buffer`) that are often unneeded.
+
+## Externally-Allocated Buffer Injection ## {#external}
+
+In [[P1072R1]], we considered that `basic_string` could "adopt" an
+externally `allocator::allocate`'d buffer. At the [[SAN]] Meeting, we
+concluded that this was:
+
+*  **Not critical**
+*  **Not constrained in the future**
+*  **Overly constraining to implementers**.  Allowing users to provide their own buffers runs into the "offset problem".  Consider an implementation that stores its `size` and `capacity` inline with its data, so `sizeof(container) == sizeof(void*)`.
+
+    <xmp>
+    class container {
+      struct Rep {
+        size_t size;
+        size_t capacity;
+      };
+
+      Rep* rep_;
+    };
+    </xmp>
+
+    If using a `Rep`-style implementation, the mismatch in offsets
+    requires an O(N) move to shift the contents into place and trigger a
+    possible reallocation.
+
+*  **Introducing new pitfalls**.  It would be easy to mix `new[]` and `allocator::allocate` inadvertently.
+
+# Related Work # {#related}
+
+## Google ## {#google}
+
+Google has a local extension to `basic_string` called `resize_uninitialized`
+which is wrapped as `STLStringResizeUninitialized`.
+
+*   [[Abseil]] uses this to avoid bookkeeping overheads in `StrAppend` and
+    `StrCat`.
+*   [[Snappy]]
+
+    *   In <a href="https://github.com/google/snappy/blob/master/snappy.cc#L1318">decompression</a>, the final size of the output buffer is known before the contents are ready.
+    *   During <a href="https://github.com/google/snappy/blob/master/snappy.cc#L1386">compression</a>, an upperbound on the final compressed size is known, allowing data to be efficiently added to the output buffer (eliding `append`'s checks) and the string to be shrunk to its final, correct size.
+
+*   [[Protobuf]] avoids extraneous copies or initialization when the
+    size is known before data is available (especially during parsing or
+    serialization).
+
+## MongoDB ## {#mongodb}
+
+MongoDB has a string builder that could have been implemented in terms of
+`basic_string` as a return value. However, as explained by Mathias Stearn, zero
+initialization was measured and was too costly. Instead a custom string builder
+type is used:
+
+E.g.: <a
+href="https://github.com/mongodb/mongo/blob/67da083face9dabdf95a5ffb72d3da675269b4c7/src/mongo/db/fts/unicode/string.h#L128-L143">
+https://github.com/mongodb/mongo/blob/master/src/mongo/db/fts/unicode/string.h
+</a>
+
+<xmp>
+/**
+ * Strips diacritics and case-folds the utf8 input string, as needed to support
+ * options.
+ *
+ * The options field specifies what operations to *skip*, so kCaseSensitive
+ * means to skip case folding and kDiacriticSensitive means to skip diacritic
+ * striping. If both flags are specified, the input utf8 StringData is returned
+ * directly without any processing or copying.
+ *
+ * If processing is performed, the returned StringData will be placed in
+ * buffer.  buffer's contents (if any) will be replaced. Since we may return
+ * the input unmodified the returned StringData's lifetime is the shorter of
+ * the input utf8 and the next modification to buffer. The input utf8 must not
+ * point into buffer.
+ */
+static StringData caseFoldAndStripDiacritics(StackBufBuilder* buffer,
+                                             StringData utf8,
+                                             SubstrMatchOptions options,
+                                             CaseFoldMode mode);
+</xmp>
+(Comments re-wrapped.)
+
+## VMware ## {#vmware}
+
+VMware has an internal string builder implementation that avoids `std::string`
+due, in part, to `reserve`'s zero-writing behavior. This is similar in spirit to
+the MongoDB example above.
+
+## Discussion on std-proposals ## {#std-proposals}
+
+This topic was discussed in 2013 on std-proposals in a thread titled "Add
+basic_string::resize_uninitialized (or a similar mechanism)":</br> <a
+href="https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0">
+https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0</a>
+
+## DynamicBuffer ## {#dynamicbuffer}
+
+The [[N4734]] (the Networking TS) has *dynamic buffer* types.
+
+## P1020R1 ## {#p1021}
+
+See also [[P1020R1]] "Smart pointer creation functions for default
+initialization". Adopted in San Diego.
+
+## Boost ## {#boost}
+
+Boost provides a related optimization for vector-like containers,
+introduced in <a
+href="https://github.com/boostorg/container/commit/14f092ab00def8e692b81d57d0466a617a6f6130">
+[SVN r85964] </a> by Ion Gaztañaga.
+
+E.g.: <a
+href="https://github.com/boostorg/container/blob/develop/include/boost/container/vector.hpp">
+boost/container/vector.hpp</a>:
+
+<xmp>
+   //! <b>Effects</b>: Constructs a vector that will use a copy of allocator a
+   //!   and inserts n default initialized values.
+   //!
+   //! <b>Throws</b>: If allocator_type's allocation
+   //!   throws or T's default initialization throws.
+   //!
+   //! <b>Complexity</b>: Linear to n.
+   //!
+   //! <b>Note</b>: Non-standard extension
+   vector(size_type n, default_init_t);
+   vector(size_type n, default_init_t, const allocator_type &a)
+   ...
+   void resize(size_type new_size, default_init_t);
+   ...
+</xmp>
+
+These optimizations are also supported in Boost Container's `small_vector`,
+`static_vector`, `deque`, `stable_vector`, and `string`.
+
+## Thrust ## {#thrust}
+
+The Thrust library has "a RAII-type `thrust::detail::temporary_array`
+which has a vector-like interface and a constructor with a tag
+parameter that indicates its elements should not be initialized." -
+[Bryce Adelstein Lelbach].
+
+
+E.g. <a
+href="https://github.com/thrust/thrust/blob/417d78471dadefa3087ff274e64f43ce74acfd3d/thrust/detail/temporary_array.inl#L47">thrust/thrust/detail/temporary_array.inl</a>:
+
+<xmp>
+template<typename T, typename TemporaryArray, typename Size>
+__host__ __device__
+typename thrust::detail::disable_if<
+  avoid_initialization<T>::value
+>::type
+  construct_values(TemporaryArray &a,
+                   Size n)
+{
+  a.default_construct_n(a.begin(), n);
+} // end construct_values()
+</xmp>
+
+# Wording # {#wording}
+
+Wording is relative to [[N4892]].
+
+Motivation for some of these edits can be found in [[#allocator]].
+
+## [<strong>version.syn</strong>] ## {#version.syn}
+
+In [**version.syn**], add:
+
+<blockquote>
+<pre highlight="">
+    #define __cpp_lib_string_resize_and_overwrite YYYYMML  // <em>also in</em> &lt;string&gt;
+</pre>
+</blockquote>
+
+Adjust the placeholder value as needed so as to denote this proposal’s date of adoption.
+
+## [<strong>basic.string.general</strong>] ## {#basic.string.general}
+
+In [**basic.string.general**], in the synopsis, add `resize_and_overwrite`:
+
+<blockquote>
+<pre highlight="">
+...
+    // <em>21.3.3.5</em>, capacity
+    constexpr size_type size() const noexcept;
+    constexpr size_type length() const noexcept;
+    constexpr size_type max_size() const noexcept;
+    constexpr void resize(size_type n, charT c);
+    constexpr void resize(size_type n);
+    <ins>template&lt;class Operation&gt;</ins>
+    <ins>constexpr void resize_and_overwrite(size_type n, Operation op);</ins>
+    constexpr size_type capacity() const noexcept;
+    constexpr void reserve(size_type res_arg);
+    constexpr void shrink_to_fit();
+    constexpr void clear() noexcept;
+    [[nodiscard]] constexpr bool empty() const noexcept;
+</pre>
+</blockquote>
+
+## [<strong>string.require</strong>] ## {#string.require}
+
+Add a note to [**string.require**]:
+
+<blockquote>
+<ol start="3">
+
+<li>
+
+In every specialization `basic_string<charT, traits, Allocator>`, the
+type `allocator_traits<Allocator>::value_type` shall name the same
+type as `charT`. Every object of type `basic_string<charT, traits,
+Allocator>` uses an object of type `Allocator` to allocate and free
+storage for the contained `charT` objects as needed. The `Allocator`
+object used is obtained as described in 22.2.1. In every
+specialization `basic_string<charT, traits, Allocator>`, the type
+`traits` shall meet the character traits requirements (21.2).
+
+<p><ins> [*Note 1:* Every specialization `basic_string<charT, traits,
+Allocator>` is an allocator-aware container, but does not use the
+allocator's `construct` and `destroy` member functions.
+([**container.requirements.general**]). — *end note*]</ins></p>
+
+<p>[*Note <del>1</del><ins>2</ins>:* The program is ill-formed if
+`traits::char_type` is not the same type as charT. — *end note*]</p>
+
+</li>
+
+<li> References, pointers, and iterators referring to the elements of
+a `basic_string` sequence may be invalidated by the following uses of
+that `basic_string` object:</li>
+
+</ol>
+</blockquote>
+
+
+## [<strong>string.capacity</strong>] ## {#string.capacity}
+
+Note that [**string.require**] p4 has blanket wording for mutating
+operations, and [[LWG2414]] introduces blanket wording for reentrancy.
+
+In [**string.capacity**]:
+
+<blockquote>
+<pre highlight="">
+constexpr void resize(size_type n, charT c);
+</pre>
+
+<ol start="5">
+
+<li>*Effects:* Alters the value of `*this` as follows:
+     <ul style="list-style-type:none;">
+     <li>— If `n <= size()`, erases the last `size() - n` elements.</li>
+     <li>— If `n > size()`, appends `n - size()` copies of `c`.</li>
+     </ul>
+</li>
+</ol>
+
+<pre highlight="">
+constexpr void resize(size_type n);
+</pre>
+<ol start="6">
+<li>*Effects:* Equivalent to `resize(n, charT())`.</li>
+</ol>
+
+<pre highlight=""><ins>
+template&lt;class Operation&gt;
+constexpr void resize_and_overwrite(size_type n, Operation op);
+</ins></pre>
+
+<ol start="7">
+
+<li><ins>Let</ins></li>
+
+<ul style="list-style-type:none;">
+
+<li><ins>— `o = size()` before the call to `resize_and_overwrite`.
+</ins></li>
+
+<li><ins>— `k` be `min(o, n)`.</ins></li>
+
+<li><ins>— `p` be a `charT*`, such that the range `[p, p + n]` is
+valid and `this->compare(0, k, p, k) == 0` is `true` before the call.
+The values in the range `[p + k, p + n]` may be indeterminate
+[**basic.indet**].</ins></li>
+
+<li><ins>— <em>`OP`</em> be the expresion `std::move(op)(p, n)`.
+
+<li><ins>— `r` = <em>`OP`</em>.</ins></li>
+
+</ul>
+
+<li><ins>*Mandates:* <em>`OP`</em> has an integer-like type
+([**iterator.concept.winc**]).</ins></li>
+
+<li><ins>*Preconditions:*</ins></li>
+
+<ul style="list-style-type:none;">
+
+<li><ins>— <em>`OP`</em> does not throw an exception or modify `p` or
+`n`.</ins></li>
+
+<li><ins>— `r` &#x2265 `0`.</ins></li>
+
+<li><ins>— `r` &#x2264 `n`.</ins></li>
+
+<li><ins>— After evaluating <em>`OP`</em> there are no indeterminate
+values in the range `[p, p + r)`.
+
+</ul>
+
+<li><ins>*Effects:* Evaluates <em>`OP`</em>, replaces the contents of
+`*this` with `[p, p + r)`, and invalidates all pointers and references
+to the range `[p, p + n]`.</ins></li>
+
+<li><ins>*Recommended practice:* Implementations should avoid unnecessary
+copies and allocations by, for example, making `p` a pointer into
+internal storage and by restoring `*(p + r)` to `charT()` after evaluating
+<em>`OP`</em>.</ins></li>
+
+</ol>
+
+<pre highlight="">
+constexpr size_type capacity() const noexcept;
+</pre>
+...
+</blockquote>
+
+## [<strong>container.requirements.general</strong>] ## {#container}
+
+In [**container.requirements.general**] p3 provide an explicit
+exception for `basic_string`. While we are here, switch to
+"allocator-aware" and "elements" terminology.
+
+<blockquote>
+<ol start="3">
+<li>
+
+<del> For the components affected by this subclause that declare an
+`allocator_type`, objects stored in these components shall be
+constructed </del> <ins> Allocator-aware containers (Table 76) other
+than `basic_string` construct elements </ins> using the function
+`allocator_traits<allocator_type>::rebind_traits<U>::construct` and
+<del> destroyed </del> <ins> destroy elements </ins> using the
+function `allocator_traits<allocator_type>::rebind_traits<U>::destroy`
+[<strong>allocator.traits.members</strong>] (20.10.8.3), where `U` is
+either `allocator_type::value_type` or an internal type used by the
+container. These functions are called only for the container’s element
+type, not for internal types used by the container.
+
+</li>
+</ol>
+</blockquote>
+
+We provide a similar exception for `basic_string` in p16:
+
+<blockquote>
+<ol start="16">
+<li>
+
+Given an allocator type `A` and given a container type `X` having a
+`value_type` identical to `T` and an `allocator_type` identical to
+`allocator_traits<A>::rebind_alloc<T>` and given an lvalue `m` of type
+`A`, a pointer `p` of type `T*`, an expression `v` of type (possibly
+`const`) `T`, and an rvalue `rv` of type `T`, the following terms are
+defined. If `X` is not allocator-aware <ins> or is a specialization of
+`basic_string` </ins>, the terms below are defined as if `A` were
+`allocator<T>` — no allocator object needs to be created and user
+specializations of `allocator<T>` are not instantiated:
+
+</li>
+</ol>
+</blockquote>
+
+
+# History # {#history}
+
+## R9 &rarr; R10 ## {#R10}
+
+* In [**string.capacity**]
+    * Wrapped `op` in `std::move` and introduced the pseudo macro
+      <em>`OP`</em>.
+    * Add Precondition that <em>`OP`</em> not modify `p` or `n`.
+    * Removed requirements for allocation and capacity (added in R9).
+
+## R8 &rarr; R9 ## {#R9}
+
+* Rebased on [[N4892]].
+* In [**string.capacity**]
+    * Added a pointer to [[LWG2414]].
+    * Reworded in terms of Let, Mandates,
+      Preconditions, Effects, and Recommended practice.
+    * Added requirements for allocation and capacity.
+* In [**container.requirements.general**]
+    * Use simple (wording) exceptions for basic_string.
+    * Use "allocator-aware".
+    * Use "element" instead of "object".
+* Add only Note in [**string.require**], removing normative changes.
+* Wording typos: typename -> class.
+* Fix markdown glitch in R8 history.
+
+## R7 &rarr; R8 ## {#R8}
+
+LEWG reviewed R7 via [[April2021Telecon]]
+
+<blockquote>
+POLL: Modify P1072R7 (`basic_string::resize_and_overwrite`) by adding a feature
+test macro, and send revised paper to electronic polling to be forwarded to LWG
+with ship vehicle C++23, and priority B2.
+
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>9</td><td>11</td><td>1</td><td>0</td><td>0</td></tr>
+</table>
+
+Attendance: 31
+
+Number of Authors: 2
+
+Author Position: Strongly Favor
+
+Outcome: Strong consensus in favor of sending to electronic polling.
+</blockquote>
+
+LEWG did electronic polling via [[D2384R0]]
+
+<blockquote>
+Poll 7: Modify P1072R7 (`basic_string::resize_and_overwrite`) by adding a
+feature test macro, and then send the revised paper to Library Working Group
+for C++23, classified as an improvement of an existing feature ([P0592R4]
+bucket 2 item).
+
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>17</td><td>8</td><td>0</td><td>1</td><td>1</td></tr>
+</table>
+
+Outcome: Consensus in favor.
+</blockquote>
+
+*   Added LEWG poll from [[April2021Telecon]]
+*   Added feature test macro.
+*   Fixed ambiguous indentation in string.capacity Effects.
+*   Further fixes for CompressWrapper example.
+*   Rebased on [[N4885]].
+*   Added LEWG electronic polling results from [[D2384R0]].
+
+## R6 &rarr; R7 ## {#R7}
+
+*   Rebased on [[N4878]].
+*   Fixed CompressWrapper example.
+*   Allowed writing one past the end.
+*   Reorganized [[#UB]].
+
+## R5 &rarr; R6 ## {#R6}
+
+LEWG reviewed R5 via [[LEWGNovTelecon]].
+
+<blockquote>
+POLL: `resize_default_init` should be able to work in constexpr context.
+
+No objection to unanimous consent.  Attendance: 23
+</blockquote>
+
+<blockquote>
+POLL: We prefer UB over throwing an exception if the operation reports it wrote more bytes than it has access to.
+
+No objection to unanimous consent.  Attendance: 21
+</blockquote>
+
+<blockquote>
+POLL: We want to rename `resize_default_init` for consistency, in a mailing list review.
+
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>3</td><td>12</td><td>0</td><td>1</td><td>0</td></tr>
+</table>
+</blockquote>
+
+Modifications since R5:
+
+*   Indicated poll outcomes for UB when `op` reports an invalid value.
+*   Renamed to `resize_and_overwrite`.  This is based on naming discussions for
+    `std::make_unique_default_init` being ultimately renamed to
+    `std::make_unique_for_overwrite`, but differs slightly because the memory
+    accessible has been overwritten.  Overwriting the buffer is an integral
+    part of the operation performed.
+*   Applied `constexpr`
+
+## R4 &rarr; R5 ## {#R5}
+
+A draft of this revision was presented to LEWG at the [[Cologne]] meeting.
+
+<blockquote>
+Forward to LWG for C++23
+<table>
+<tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+<tr><td>10</td><td>5</td><td>1</td><td>0</td><td>0</td></tr>
+</table>
+</blockquote>
+
+*   Rebased on [[N4830]].
+*   Proposed UB instead of `throwing std::range_error`.
+
+## R3 &rarr; R4 ## {#R4}
+
+*   Applied feedback from the [[KOA]] meeting.
+*   Moved to using a callback routine, rather than leaving invariants
+    weakened from the time `resize_default_init` returned until values
+    in the buffer were assigned.
+
+## R2 &rarr; R3 ## {#R3}
+
+*   Applied Jonathan Wakely's editorial comments on [[#wording]].
+*   Rebased on [[N4791]].
+*   Editorial changes to [[#mot]] and [[#tag]] to support our design
+    choice.
+*   Added the reference to [[LIBC++]] in [[#impl]].
+
+## R1 &rarr; R2 ## {#R2}
+
+Applied feedback from [[SAN]] Meeting reviews.
+
+*   Reverted design to "option A" proposed in [[P1072R0]].
+*   Switched from `resize_uninitialized` to `resize_default_init`.
+*   Added discussion of alternatives considered.
+*   Specified allocator interaction.
+*   Added wording.
+
+## R0 &rarr; R1 ## {#R1}
+
+Applied feedback from LEWG [[post-Rapperswil]] Email Review:
+
+*   Shifted to a new vocabulary types: `storage_buffer` / `storage_node`
+
+    *   Added presentation of `storage_buffer` as a new container type
+    *   Added presentation of `storage_node` as a node-like type
+
+*   Added discussion of design and implementation considerations.
+
+*   Most of [[P1010R1]] Was merged into this paper.
+
+# Acknowledgments # {#acknowledgments}
+
+Thanks go to **Arthur O'Dwyer** for help with wording and proof
+reading, to **Jonathan Wakely** for hunting down the language that
+makes `basic_string` allocator-aware, and to **Glen Fernandes**,
+**Corentin Jabot**, **Billy O'Neal**, and **Mathias Stearn** for
+design discussion. Special thanks to **Eric Fiselier** for providing
+the implmentation.
+
+
+<pre class=biblio>
+{
+    "Abseil": {
+        "href": "https://github.com/abseil/abseil-cpp",
+        "date": "2018-09-22",
+        "title": "Abseil"
+    },
+    "April2021Telecon": {
+        "href": "https://wiki.edg.com/bin/view/Wg21telecons2021/P1072",
+        "date": "2021-04-27",
+        "title": "Library Evolution Telecon 2021-04-27"
+    },
+    "Cologne": {
+        "href": "http://wiki.edg.com/bin/view/Wg21cologne2019/P1072",
+        "date": "2019-07-19",
+        "title": "Cologne Meeting Minutes"
+    },
+    "D2384R0": {
+    	"href": "https://api.csswg.org/bikeshed/?force=1&url=https://raw.githubusercontent.com/brycelelbach/wg21_p2384_2021_spring_library_evolution_poll_outcomes/main/2021_spring_library_evolution_poll_outcomes.bs",
+	"date": "2021-06-03",
+	"title": "2021 Spring Library Evolution Poll Outcomes",
+    },
+    "KOA": {
+        "href": "http://wiki.edg.com/bin/view/Wg21kona2019/P1072",
+        "date": "2019-02-19",
+        "title": "Kona Meeting Minutes"
+    },
+    "LEWGNovTelecon": {
+    	"href": "https://wiki.edg.com/bin/view/Wg21summer2020/P1072",
+	"date": "2020-11-16",
+	"title": "LEWG November 2020 Minutes"
+    },
+    "SAN": {
+        "href": "http://wiki.edg.com/bin/view/Wg21sandiego2018/P1072",
+	"date": "2018-11-07",
+	"title": "San Diego Meeting Minutes"
+    },
+    "post-Rapperswil": {
+        "href": "http://lists.isocpp.org/lib-ext/2018/08/8299.php",
+        "date": "2018-08-26",
+        "title": "LEWG Weekly - P1072"
+    },
+    "Zero": {
+        "href": "http://lists.isocpp.org/lib-ext/2018/04/6712.php",
+        "date": "2018-04-13",
+        "title": "Listening to our customers: Zero-initialization issue"
+    },
+    "Protobuf": {
+        "href": "https://github.com/protocolbuffers/protobuf",
+        "date": "2018-09-22",
+        "title": "Protocol Buffers"
+    },
+    "Snappy": {
+        "href": "https://github.com/google/snappy",
+        "date": "2018-09-21",
+        "title": "Snappy"
+    },
+    "MSan": {
+        "href": "https://clang.llvm.org/docs/MemorySanitizer.html",
+        "title": "Memory Sanitizer"
+    },
+    "Valgrind": {
+        "href": "http://www.valgrind.org",
+        "title": "Valgrind"
+    },
+    "LIBC++": {
+        "href": "http://llvm.org/viewvc/llvm-project?view=revision&revision=347589",
+        "date": "2018-11-26",
+        "title": "Add basic_string::__resize_default_init (from P1072)"
+    }
+}
+</pre>
